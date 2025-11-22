@@ -17,3 +17,7 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
+
+[app_proxy]
+url = "request-purchase"
+prefix = "apps"

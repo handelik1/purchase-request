@@ -1,5 +1,8 @@
 <div style="margin-top:20px;">
-  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+  <button 
+    id="request-purchase-btn" 
+    type="button" 
+    style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
@@ -14,7 +17,14 @@
 
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
-          const BACKEND = '/apps/request-purchase'; // Shopify App Proxy path
+          
+          // Use App Proxy path in production
+          const BACKEND = '/apps/request-purchase';
+
+          // Optional: fallback for direct testing (disable for Shopify)
+          // const BACKEND = window.location.hostname.includes('myshopify.com') 
+          //   ? '/apps/request-purchase' 
+          //   : 'https://purchase-request-13ki.onrender.com/apps/request-purchase';
 
           const response = await fetch(BACKEND, {
             method: 'POST',
@@ -22,17 +32,18 @@
             body: JSON.stringify({ email, cart })
           });
 
-          // handle non-JSON gracefully
           let result;
           try {
             result = await response.json();
-          } catch (e) {
-            console.error("Non-JSON response:", await response.text());
+          } catch {
+            const text = await response.text();
+            console.error("Non-JSON response:", text);
             result = null;
           }
 
           if (response.ok && result?.success) {
             alert('Request Sent!');
+            console.log("Request successful:", result);
           } else {
             alert('Error sending request.');
             console.error("Request error:", response.status, result);

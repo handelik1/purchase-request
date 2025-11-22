@@ -14,12 +14,12 @@ if (process.env.ENABLE_CORS_FOR_DEV === "true") {
   app.use(cors());
 }
 
-// Mount route at /request-purchase (Shopify will forward to this)
-app.use("/request-purchase", requestPurchaseRouter);
+// Mount router at /apps/request-purchase to match Shopify App Proxy
+app.use("/apps/request-purchase", requestPurchaseRouter);
 
-// Basic health
+// Basic health endpoint
 app.get("/", (_req, res) => res.send("OK"));
 
-// Start
+// Start server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
