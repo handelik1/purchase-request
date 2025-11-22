@@ -18,22 +18,18 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('request-purchase-btn');
-      console.log("Request Purchase button loaded:", btn);
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const email = prompt('Enter email address to send request to:');
-        console.log("Email entered:", email);
+        const email = prompt('Enter approver email address:');
         if (!email) return;
 
         try {
-          // Get Shopify cart
+          // Get cart from Shopify
           const cart = await fetch('/cart.js').then(r => r.json());
-          console.log("Cart data:", cart);
 
-          // App Proxy URL
+          // Use Shopify App Proxy URL or full backend URL in dev
           const BACKEND_URL = '/apps/request-purchase';
-          console.log("Using BACKEND_URL:", BACKEND_URL);
 
           const response = await fetch(BACKEND_URL, {
             method: 'POST',
@@ -41,20 +37,10 @@
             body: JSON.stringify({ email, cart })
           });
 
-          let result;
-          try {
-            result = await response.json();
-          } catch {
-            console.error("Response is not JSON:", await response.text());
-            alert('Error sending request.');
-            return;
-          }
-
-          console.log("Server response:", result);
+          const result = await response.json();
           alert(result.success ? 'Request Sent!' : 'Error sending request.');
-
-        } catch (e) {
-          console.error("Error sending request:", e);
+        } catch (err) {
+          console.error("Error sending request:", err);
           alert('Error sending request.');
         }
       });
