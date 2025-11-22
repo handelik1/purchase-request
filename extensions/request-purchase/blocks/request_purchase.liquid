@@ -30,12 +30,8 @@
           const cart = await fetch('/cart.js').then(r => r.json());
           console.log("Cart data:", cart);
 
-          // Use App Proxy URL in production
-          const PROXY_PATH = '/apps/request-purchase';
-
-          // Optional: fallback to ephemeral Cloudflare URL for dev testing
-          const DEV_BACKEND = 'https://contest-compounds-toll-referral.trycloudflare.com/request-purchase';
-          const BACKEND_URL = window.location.hostname.includes('myshopify.com') ? PROXY_PATH : DEV_BACKEND;
+          // Use App Proxy URL
+          const BACKEND_URL = '/apps/request-purchase';
           console.log("Using BACKEND_URL:", BACKEND_URL);
 
           const response = await fetch(BACKEND_URL, {
