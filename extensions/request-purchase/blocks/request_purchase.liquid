@@ -27,10 +27,11 @@
         if (!email) return;
 
         try {
+          // Get Shopify cart
           const cart = await fetch('/cart.js').then(r => r.json());
           console.log("Cart data:", cart);
 
-          // Use App Proxy URL
+          // App Proxy URL
           const BACKEND_URL = '/apps/request-purchase';
           console.log("Using BACKEND_URL:", BACKEND_URL);
 
@@ -40,10 +41,18 @@
             body: JSON.stringify({ email, cart })
           });
 
-          const result = await response.json();
-          console.log("Server response:", result);
+          let result;
+          try {
+            result = await response.json();
+          } catch {
+            console.error("Response is not JSON:", await response.text());
+            alert('Error sending request.');
+            return;
+          }
 
+          console.log("Server response:", result);
           alert(result.success ? 'Request Sent!' : 'Error sending request.');
+
         } catch (e) {
           console.error("Error sending request:", e);
           alert('Error sending request.');
