@@ -1,5 +1,8 @@
 <div style="margin-top:20px;">
-  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+  <button 
+    id="request-purchase-btn" 
+    type="button"
+    style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
@@ -9,23 +12,34 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const email = prompt('Enter your email to request purchase:');
+        const email = prompt('Enter email address to send request to:');
         if (!email) return;
 
         try {
-          const BACKEND = '/apps/request-purchase'; // Shopify App Proxy path
+          console.log("Fetching cart...");
+          const cart = await fetch('/cart.js').then(r => r.json());
+          console.log("Cart:", cart);
 
+          // --- APP PROXY URL ---
+          const BACKEND = `/apps/request-purchase?shop={{ shop.permanent_domain }}`;
+          console.log("Backend POST URL:", BACKEND);
+
+          // --- SEND REQUEST ---
           const response = await fetch(BACKEND, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, cart })
           });
 
+          // --- HANDLE RESPONSE ---
           let result;
           try {
             result = await response.json();
-          } catch (e) {
-            console.error("Non-JSON response:", await response.text());
+          } catch (err) {
+            console.warn("Non-JSON response from server:", err);
+            try {
+              console.log("Raw response:", await response.text());
+            } catch (e) {}
             result = null;
           }
 
@@ -33,14 +47,22 @@
             alert('Request Sent!');
           } else {
             alert('Error sending request.');
-            console.error("Request error:", response.status, result);
+            console.error("Request failed:", response.status, result);
           }
 
         } catch (err) {
-          console.error("Fetch error:", err);
+          console.error("Fatal fetch error:", err);
           alert('Error sending request.');
         }
       });
     });
   </script>
 </div>
+
+{% schema %}
+{
+  "name": "Request Purchase Button",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
