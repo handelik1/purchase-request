@@ -16,9 +16,14 @@ const billingConfig = {
   },
 };
 
+console.log(process.env.SHOPIFY_APP_HOST)
+
 const shopify = shopifyApp({
   api: {
     apiVersion: LATEST_API_VERSION,
+    apiKey: process.env.SHOPIFY_API_KEY,
+    apiSecretKey: process.env.SHOPIFY_API_SECRET,
+    hostName: process.env.SHOPIFY_APP_HOST, // must match exactly
     restResources,
     future: {
       customerAddressDefaultFix: true,
