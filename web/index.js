@@ -1,4 +1,3 @@
-// index.js
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -9,15 +8,15 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Optional: allow CORS for direct testing (not required for App Proxy)
+// Optional: allow CORS for dev testing
 if (process.env.ENABLE_CORS_FOR_DEV === "true") {
   app.use(cors());
 }
 
-// Mount router at /apps/request-purchase to match Shopify App Proxy
-app.use("/apps/request-purchase", requestPurchaseRouter);
+// Mount request-purchase route (Shopify App Proxy will forward POST here)
+app.use("/request-purchase", requestPurchaseRouter);
 
-// Basic health endpoint
+// Health check
 app.get("/", (_req, res) => res.send("OK"));
 
 // Start server

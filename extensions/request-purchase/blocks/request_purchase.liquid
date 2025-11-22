@@ -1,8 +1,5 @@
 <div style="margin-top:20px;">
-  <button 
-    id="request-purchase-btn" 
-    type="button" 
-    style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
@@ -12,42 +9,33 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const email = prompt('Enter email address to send request to:');
+        const email = prompt('Enter your email to request purchase:');
         if (!email) return;
 
         try {
-          const cart = await fetch('/cart.js').then(r => r.json());
-          
-          // Use App Proxy path in production
-          const BACKEND = '/apps/request-purchase';
-
-          // Optional: fallback for direct testing (disable for Shopify)
-          // const BACKEND = window.location.hostname.includes('myshopify.com') 
-          //   ? '/apps/request-purchase' 
-          //   : 'https://purchase-request-13ki.onrender.com/apps/request-purchase';
+          const BACKEND = '/apps/request-purchase'; // Shopify App Proxy path
 
           const response = await fetch(BACKEND, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, cart })
+            body: JSON.stringify({ email })
           });
 
           let result;
           try {
             result = await response.json();
-          } catch {
-            const text = await response.text();
-            console.error("Non-JSON response:", text);
+          } catch (e) {
+            console.error("Non-JSON response:", await response.text());
             result = null;
           }
 
           if (response.ok && result?.success) {
             alert('Request Sent!');
-            console.log("Request successful:", result);
           } else {
             alert('Error sending request.');
             console.error("Request error:", response.status, result);
           }
+
         } catch (err) {
           console.error("Fetch error:", err);
           alert('Error sending request.');
