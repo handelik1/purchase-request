@@ -1,17 +1,25 @@
+// index.js
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import requestPurchaseRoute from "./routes/request-purchase.js";
+import requestPurchaseRouter from "./routes/request-purchase.js";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-// Enable CORS only if needed for testing (Shopify App Proxy won’t need it)
-app.use(cors());
+// Optional: allow CORS for direct testing (not required for App Proxy)
+if (process.env.ENABLE_CORS_FOR_DEV === "true") {
+  app.use(cors());
+}
 
-app.use("/request-purchase", requestPurchaseRoute);
+// Mount route at /request-purchase (Shopify will forward to this)
+app.use("/request-purchase", requestPurchaseRouter);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Basic health
+app.get("/", (_req, res) => res.send("OK"));
+
+// Start
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));

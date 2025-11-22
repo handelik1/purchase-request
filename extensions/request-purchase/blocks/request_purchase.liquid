@@ -1,17 +1,5 @@
 <div style="margin-top:20px;">
-  <button 
-    id="request-purchase-btn"
-    type="button"
-    style="
-      width:100%;
-      padding:12px;
-      background:#000;
-      color:#fff;
-      border:none;
-      cursor:pointer;
-      font-size:16px;
-    "
-  >
+  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
@@ -21,37 +9,39 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const email = prompt('Enter approver email address:');
+        const email = prompt('Enter email address to send request to:');
         if (!email) return;
 
         try {
-          // Get cart from Shopify
           const cart = await fetch('/cart.js').then(r => r.json());
+          const BACKEND = '/apps/request-purchase'; // Shopify App Proxy path
 
-          // Use Shopify App Proxy URL or full backend URL in dev
-          const BACKEND_URL = '/apps/request-purchase';
-
-          const response = await fetch(BACKEND_URL, {
+          const response = await fetch(BACKEND, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, cart })
           });
 
-          const result = await response.json();
-          alert(result.success ? 'Request Sent!' : 'Error sending request.');
+          // handle non-JSON gracefully
+          let result;
+          try {
+            result = await response.json();
+          } catch (e) {
+            console.error("Non-JSON response:", await response.text());
+            result = null;
+          }
+
+          if (response.ok && result?.success) {
+            alert('Request Sent!');
+          } else {
+            alert('Error sending request.');
+            console.error("Request error:", response.status, result);
+          }
         } catch (err) {
-          console.error("Error sending request:", err);
+          console.error("Fetch error:", err);
           alert('Error sending request.');
         }
       });
     });
   </script>
 </div>
-
-{% schema %}
-{
-  "name": "Request Purchase Button",
-  "target": "section",
-  "settings": []
-}
-{% endschema %}
