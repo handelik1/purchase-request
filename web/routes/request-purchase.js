@@ -25,7 +25,7 @@ router.post("/", async (req, res) => {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "Purchase Request",
-    text: `You received a purchase request!\n\nCart: ${JSON.stringify(cart, null, 2)}`
+    text: `hi`
   };
 
   try {
