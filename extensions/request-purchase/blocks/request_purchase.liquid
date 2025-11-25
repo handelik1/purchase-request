@@ -1,5 +1,6 @@
 <div style="margin-top:20px;">
-  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+  <button id="request-purchase-btn" type="button"
+    style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
@@ -9,47 +10,30 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const approverEmail = prompt('Enter email address to send request to:');
-        if (!approverEmail) return;
+        const email = prompt('Enter email address to send request to:');
+        if (!email) return;
 
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
-          const BACKEND = '/apps/request-purchase';
 
-          const requester = {
-            email: "{{ customer.email | escape }}",
-            first_name: "{{ customer.first_name | escape }}",
-            last_name: "{{ customer.last_name | escape }}",
-            address1: "{{ customer.default_address.address1 | escape }}",
-            address2: "{{ customer.default_address.address2 | escape }}",
-            city: "{{ customer.default_address.city | escape }}",
-            province: "{{ customer.default_address.province | escape }}",
-            zip: "{{ customer.default_address.zip | escape }}",
-            country: "{{ customer.default_address.country | escape }}"
-          };
+          // Shopify's logged-in customer address
+          const address = window?.Shopify?.customer?.default_address || null;
 
-          const response = await fetch(BACKEND, {
+          const response = await fetch('/apps/request-purchase', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approverEmail, cart, requester })
+            body: JSON.stringify({ email, cart, address })
           });
 
-          let result;
-          try {
-            result = await response.json();
-          } catch (e) {
-            console.error("Non-JSON response:", await response.text());
-            result = null;
-          }
+          const result = await response.json().catch(() => null);
 
           if (response.ok && result?.success) {
-            alert('Request Sent!');
+            alert('Request sent!');
           } else {
             alert('Error sending request.');
-            console.error("Request error:", response.status, result);
           }
         } catch (err) {
-          console.error("Fetch error:", err);
+          console.error(err);
           alert('Error sending request.');
         }
       });
