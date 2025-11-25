@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import requestPurchaseRouter from "../routes/request-purchase.js";
+import requestPurchaseRouter from "./routes/request-purchase.js";
 
 dotenv.config();
 
