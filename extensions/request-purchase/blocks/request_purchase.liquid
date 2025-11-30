@@ -1,5 +1,5 @@
 <div style="margin-top:20px;">
-  <button id="request-purchase-btn"
+  <button id="request-purchase-btn" type="button"
     style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
@@ -26,28 +26,34 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const recipient = prompt("Enter recipient email:");
+        const recipient = prompt("Enter the email of the person who should receive this request:");
         if (!recipient) return;
 
-        const cart = await fetch('/cart.js').then(r => r.json());
-        const address = window.REQUESTER || null;
+        try {
+          const cart = await fetch('/cart.js').then(r => r.json());
 
-        const response = await fetch('/apps/request-purchase', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: recipient,
-            cart,
-            address
-          })
-        });
+          // requester info from Liquid if logged-in
+          const requester = window.REQUESTER || null;
 
-        let result;
-        try { result = await response.json(); } catch {}
+          // POST to App Proxy path (Shopify will forward to your /request-purchase)
+          const resp = await fetch('/apps/request-purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: recipient, cart, requester })
+          });
 
-        if (response.ok && result?.success) {
-          alert("Request Sent!");
-        } else {
+          let result;
+          try { result = await resp.json(); } catch(e) { result = null; }
+
+          if (resp.ok && result?.success) {
+            alert("Request sent! The recipient will receive an invoice link to complete payment.");
+            console.log("Draft ID:", result.draft_id, "invoice:", result.invoice_url);
+          } else {
+            alert("Error sending request. Check console for details.");
+            console.error("Request error:", resp.status, result);
+          }
+        } catch (err) {
+          console.error("Fetch error:", err);
           alert("Error sending request.");
         }
       });
