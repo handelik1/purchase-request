@@ -9,19 +9,26 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// Allow CORS only in development
 if (process.env.ENABLE_CORS_FOR_DEV === "true") {
   app.use(cors());
 }
 
-// Route that App Proxy forwards to: /request-purchase
+// Shopify App Proxy forwards to /request-purchase
 app.use("/request-purchase", requestPurchaseRouter);
 
-// Optional health
+// Health check
 app.get("/", (_req, res) => res.send("OK"));
 
-// Crash logging for Render
-process.on("uncaughtException", (err) => console.error("UNCAUGHT EX:", err));
-process.on("unhandledRejection", (err) => console.error("UNHANDLED REJECTION:", err));
+// Render crash logging
+process.on("uncaughtException", (err) =>
+  console.error("UNCAUGHT EXCEPTION:", err)
+);
+process.on("unhandledRejection", (err) =>
+  console.error("UNHANDLED PROMISE REJECTION:", err)
+);
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Server listening on port ${PORT}`)
+);

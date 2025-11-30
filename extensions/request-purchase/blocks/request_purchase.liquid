@@ -4,7 +4,7 @@
     Request Purchase
   </button>
 
-  {% if customer %}
+  {% if customer and customer.default_address %}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
@@ -26,16 +26,13 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const recipient = prompt("Enter the email of the person who should receive this request:");
+        const recipient = prompt("Enter the email of the person who should approve this purchase:");
         if (!recipient) return;
 
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
-
-          // requester info from Liquid if logged-in
           const requester = window.REQUESTER || null;
 
-          // POST to App Proxy path (Shopify will forward to your /request-purchase)
           const resp = await fetch('/apps/request-purchase', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -43,18 +40,18 @@
           });
 
           let result;
-          try { result = await resp.json(); } catch(e) { result = null; }
+          try { result = await resp.json(); } catch (e) {}
 
           if (resp.ok && result?.success) {
-            alert("Request sent! The recipient will receive an invoice link to complete payment.");
-            console.log("Draft ID:", result.draft_id, "invoice:", result.invoice_url);
+            alert("Request sent!");
+            console.log("Draft order:", result.draft_id, result.invoice_url);
           } else {
-            alert("Error sending request. Check console for details.");
-            console.error("Request error:", resp.status, result);
+            alert("Could not send request.");
+            console.error(result);
           }
         } catch (err) {
-          console.error("Fetch error:", err);
-          alert("Error sending request.");
+          console.error("Error:", err);
+          alert("Something went wrong.");
         }
       });
     });
