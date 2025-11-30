@@ -4,7 +4,7 @@
     Request Purchase
   </button>
 
-  {% if customer and customer.default_address %}
+  {% if customer %}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
@@ -14,12 +14,10 @@
         address2: "{{ customer.default_address.address2 | escape }}",
         city: "{{ customer.default_address.city | escape }}",
         province: "{{ customer.default_address.province | escape }}",
-        province_code: "{{ customer.default_address.province_code | escape }}",
         zip: "{{ customer.default_address.zip | escape }}",
-        country: "{{ customer.default_address.country | escape }}",
-        country_code: "{{ customer.default_address.country_code | escape }}",
-        phone: "{{ customer.default_address.phone | escape }}"
+        country: "{{ customer.default_address.country | escape }}"
       };
+      console.log("REQUESTER set:", window.REQUESTER);
     </script>
   {% endif %}
 
@@ -35,6 +33,7 @@
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
           const requester = window.REQUESTER || null;
+          console.log("Posting request:", { recipient, cart, requester });
 
           const resp = await fetch('/apps/request-purchase', {
             method: 'POST',
@@ -43,21 +42,19 @@
           });
 
           let result;
-          try { result = await resp.json(); } catch (e) { result = null; }
+          try { result = await resp.json(); } catch(e) { result = null; }
 
           if (resp.ok && result?.success) {
-            alert("Request sent!");
-            console.log("Draft ID:", result.draft_id, "invoice:", result.invoice_url, "customer_attached:", result.customer_attached);
-            if (!result.customer_attached) {
-              console.warn("No existing customer matched the requester email — shipping may not prefill for logged-in approvers.");
-            }
+            alert("Request sent! The recipient will receive an invoice link.");
+            console.log("Draft ID:", result.draft_id, "Invoice:", result.invoice_url);
           } else {
-            alert("Could not send request. Check console.");
+            alert("Error sending request. Check console.");
             console.error("Request error:", resp.status, result);
           }
+
         } catch (err) {
-          console.error("Error:", err);
-          alert("Something went wrong.");
+          console.error("Fetch error:", err);
+          alert("Error sending request.");
         }
       });
     });
