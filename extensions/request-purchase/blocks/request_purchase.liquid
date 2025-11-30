@@ -1,64 +1,56 @@
 <div style="margin-top:20px;">
-  <button id="request-purchase-btn" type="button" style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+  <button id="request-purchase-btn"
+    style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
+
+  {% if customer %}
+    <script>
+      window.REQUESTER = {
+        email: "{{ customer.email | escape }}",
+        first_name: "{{ customer.default_address.first_name | escape }}",
+        last_name: "{{ customer.default_address.last_name | escape }}",
+        address1: "{{ customer.default_address.address1 | escape }}",
+        address2: "{{ customer.default_address.address2 | escape }}",
+        city: "{{ customer.default_address.city | escape }}",
+        province: "{{ customer.default_address.province | escape }}",
+        zip: "{{ customer.default_address.zip | escape }}",
+        country: "{{ customer.default_address.country | escape }}"
+      };
+    </script>
+  {% endif %}
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('request-purchase-btn');
       if (!btn) return;
 
-      async function getCustomerAddress() {
-        if (!window.LOGGED_IN_CUSTOMER_ID) return null;
-        try {
-          const res = await fetch(`/apps/request-purchase/customer-address?id=${window.LOGGED_IN_CUSTOMER_ID}`);
-          const data = await res.json();
-          return data.address || null;
-        } catch (e) {
-          console.error("Error fetching customer address:", e);
-          return null;
-        }
-      }
-
       btn.addEventListener('click', async () => {
-        const email = prompt('Enter email address to send request to:');
-        if (!email) return;
+        const recipient = prompt("Enter recipient email:");
+        if (!recipient) return;
 
-        try {
-          const cart = await fetch('/cart.js').then(r => r.json());
-          const address = await getCustomerAddress();
+        const cart = await fetch('/cart.js').then(r => r.json());
+        const address = window.REQUESTER || null;
 
-          const response = await fetch('/apps/request-purchase', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, cart, address })
-          });
+        const response = await fetch('/apps/request-purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: recipient,
+            cart,
+            address
+          })
+        });
 
-          let result;
-          try {
-            result = await response.json();
-          } catch(e) {
-            console.error("Non-JSON response:", await response.text());
-            result = null;
-          }
+        let result;
+        try { result = await response.json(); } catch {}
 
-          if (response.ok && result?.success) {
-            alert('Request Sent!');
-          } else {
-            alert('Error sending request.');
-          }
-
-        } catch (err) {
-          console.error("Fetch error:", err);
-          alert('Error sending request.');
+        if (response.ok && result?.success) {
+          alert("Request Sent!");
+        } else {
+          alert("Error sending request.");
         }
       });
     });
   </script>
 </div>
-
-{% if customer %}
-<script>
-  window.LOGGED_IN_CUSTOMER_ID = "{{ customer.id }}";
-</script>
-{% endif %}
