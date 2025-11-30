@@ -14,8 +14,11 @@
         address2: "{{ customer.default_address.address2 | escape }}",
         city: "{{ customer.default_address.city | escape }}",
         province: "{{ customer.default_address.province | escape }}",
+        province_code: "{{ customer.default_address.province_code | escape }}",
         zip: "{{ customer.default_address.zip | escape }}",
-        country: "{{ customer.default_address.country | escape }}"
+        country: "{{ customer.default_address.country | escape }}",
+        country_code: "{{ customer.default_address.country_code | escape }}",
+        phone: "{{ customer.default_address.phone | escape }}"
       };
     </script>
   {% endif %}
@@ -26,7 +29,7 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const recipient = prompt("Enter the email of the person who should approve this purchase:");
+        const recipient = prompt("Enter the email of the person who should receive this request:");
         if (!recipient) return;
 
         try {
@@ -40,14 +43,17 @@
           });
 
           let result;
-          try { result = await resp.json(); } catch (e) {}
+          try { result = await resp.json(); } catch (e) { result = null; }
 
           if (resp.ok && result?.success) {
             alert("Request sent!");
-            console.log("Draft order:", result.draft_id, result.invoice_url);
+            console.log("Draft ID:", result.draft_id, "invoice:", result.invoice_url, "customer_attached:", result.customer_attached);
+            if (!result.customer_attached) {
+              console.warn("No existing customer matched the requester email — shipping may not prefill for logged-in approvers.");
+            }
           } else {
-            alert("Could not send request.");
-            console.error(result);
+            alert("Could not send request. Check console.");
+            console.error("Request error:", resp.status, result);
           }
         } catch (err) {
           console.error("Error:", err);
