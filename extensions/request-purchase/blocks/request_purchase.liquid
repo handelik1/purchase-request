@@ -1,4 +1,4 @@
-<div style="margin-top:20px">
+<div style="margin-top:20px" class="button-wrapper">
   <button id="request-purchase-btn" type="button"
     style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
@@ -21,18 +21,66 @@
     </script>
   {% endif %}
 
+  <!-- MODAL HTML -->
+  <div id="rp-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+       background:rgba(0,0,0,0.45);z-index:99999;align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:24px;border-radius:8px;width:90%;max-width:420px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+      <h3 style="margin-top:0;font-size:20px;">Send Purchase Request</h3>
+
+      <label style="font-size:14px;margin-bottom:6px;display:block;">Recipient Email</label>
+      <input id="rp-modal-input" type="email" placeholder="recipient@example.com"
+             style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:16px;font-size:15px;" />
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="rp-cancel"
+                style="padding:10px 14px;border:1px solid #666;background:#fff;color:#333;border-radius:6px;cursor:pointer;">
+          Cancel
+        </button>
+        <button id="rp-submit"
+                style="padding:10px 14px;background:#000;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+          Send Request
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('request-purchase-btn');
+      const modal = document.getElementById('rp-modal');
+      const cancelBtn = document.getElementById('rp-cancel');
+      const submitBtn = document.getElementById('rp-submit');
+      const input = document.getElementById('rp-modal-input');
+
       if (!btn) return;
 
-      btn.addEventListener('click', async () => {
-        const recipient = prompt("Enter the email of the person who should receive this request:");
-        if (!recipient) return;
+      // Open modal
+      btn.addEventListener('click', () => {
+        input.value = "";
+        modal.style.display = "flex";
+        setTimeout(() => input.focus(), 50);
+      });
+
+      // Close modal
+      cancelBtn.addEventListener('click', () => modal.style.display = "none");
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = "none";
+      });
+
+      // Submit
+      submitBtn.addEventListener('click', async () => {
+        const recipient = input.value.trim();
+        if (!recipient) {
+          alert("Please enter a valid email.");
+          return;
+        }
+
+        modal.style.display = "none";
 
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
           const requester = window.REQUESTER || null;
+
           console.log("Posting request:", { recipient, cart, requester });
 
           const resp = await fetch('/apps/request-purchase', {
