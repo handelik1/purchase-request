@@ -54,6 +54,9 @@
 
       if (!btn) return;
 
+      // Set your backend server URL here
+      const BACKEND_URL = 'https://purchase-request-13ki.onrender.com'; 
+
       // Open modal
       btn.addEventListener('click', () => {
         input.value = "";
@@ -83,7 +86,7 @@
 
           console.log("Posting request:", { recipient, cart, requester });
 
-          const resp = await fetch('/request-purchase', {
+          const resp = await fetch(BACKEND_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: recipient, cart, requester })
@@ -108,12 +111,3 @@
     });
   </script>
 </div>
-
-
-{% schema %}
-{
-  "name": "Request Purchase Button 3",
-  "target": "section",
-  "settings": []
-}
-{% endschema %}
