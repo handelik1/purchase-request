@@ -1,5 +1,5 @@
 {
-  "name": "request-purchase-app",
+  "name": "purchase-request-app",
   "version": "1.0.0",
   "main": "web/index.js",
   "license": "UNLICENSED",
