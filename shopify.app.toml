@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "7f2fa7c4508fed2c12ecf3937183ff61"
+client_id = "05c24b4228414f78ee90c5605abf17a3"
 name = "purchase-request-app"
-application_url = "https://example.com"
+application_url = "https://shopify.dev/apps/default-app-home"
 embedded = true
 
 [build]
@@ -13,11 +13,7 @@ api_version = "2026-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = ""
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
-
-[app_proxy]
-url = "request-purchase"
-prefix = "apps"
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
