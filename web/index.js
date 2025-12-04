@@ -1,4 +1,3 @@
-// web/index.js
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -9,12 +8,16 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Enable CORS for dev testing if needed
-if (process.env.ENABLE_CORS_FOR_DEV === "true") {
-  app.use(cors());
-}
+// ✅ Enable CORS for Shopify dev store
+const SHOPIFY_DEV_STORE = process.env.SHOPIFY_DEV_STORE_ORIGIN || "https://testing-approval.myshopify.com";
+app.use(cors({
+  origin: SHOPIFY_DEV_STORE,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+  credentials: true
+}));
 
-// App Proxy path: Shopify will forward requests to /apps/request-purchase
+// Your routes
 app.use("/request-purchase", requestPurchaseRouter);
 
 // Health check

@@ -1,4 +1,3 @@
-// web/routes/request-purchase.js
 import express from "express";
 
 const router = express.Router();
@@ -6,7 +5,6 @@ const router = express.Router();
 /**
  * POST /request-purchase
  * Body: { email: recipientEmail, cart, requester }
- *
  * Creates Shopify Draft Order with requester shipping info.
  */
 router.post("/", async (req, res) => {
@@ -17,9 +15,6 @@ router.post("/", async (req, res) => {
     if (!recipientEmail) return res.status(400).json({ success: false, error: "Missing recipient email" });
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       return res.status(400).json({ success: false, error: "Cart empty or missing" });
-    }
-    if (!requester || !requester.email) {
-      console.warn("No requester email provided; shipping info may be missing.");
     }
 
     const shop = process.env.SHOPIFY_SHOP_DOMAIN;
@@ -109,7 +104,7 @@ router.post("/", async (req, res) => {
       <p>Or open this URL in your browser: <a href="${invoice_url}">${invoice_url}</a></p>
     `;
 
-    // Send email via Mailgun HTTP API
+    // Send email via Mailgun
     const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
     const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
     const MAILGUN_BASE = process.env.MAILGUN_BASE_URL || "https://api.mailgun.net/v3";
