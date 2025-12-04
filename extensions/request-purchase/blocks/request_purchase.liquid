@@ -83,7 +83,7 @@
 
           console.log("Posting request:", { recipient, cart, requester });
 
-          const resp = await fetch('/apps/request-purchase', {
+          const resp = await fetch('/request-purchase', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: recipient, cart, requester })
