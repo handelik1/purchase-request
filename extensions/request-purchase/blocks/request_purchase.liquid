@@ -4,12 +4,12 @@
     Request Purchase
   </button>
 
-  {% if customer %}
+  {% if customer and customer.default_address %}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
-        first_name: "{{ customer.default_address.first_name | escape }}",
-        last_name: "{{ customer.default_address.last_name | escape }}",
+        first_name: "{{ customer.default_address.first_name | default: customer.first_name | escape }}",
+        last_name: "{{ customer.default_address.last_name | default: customer.last_name | escape }}",
         address1: "{{ customer.default_address.address1 | escape }}",
         address2: "{{ customer.default_address.address2 | escape }}",
         city: "{{ customer.default_address.city | escape }}",
@@ -17,11 +17,31 @@
         zip: "{{ customer.default_address.zip | escape }}",
         country: "{{ customer.default_address.country | escape }}"
       };
-      console.log("REQUESTER set:", window.REQUESTER);
+      console.log("REQUESTER loaded with default address:", window.REQUESTER);
+    </script>
+  {% elsif customer %}
+    <script>
+      window.REQUESTER = {
+        email: "{{ customer.email | escape }}",
+        first_name: "{{ customer.first_name | escape }}",
+        last_name: "{{ customer.last_name | escape }}",
+        address1: "",
+        address2: "",
+        city: "",
+        province: "",
+        zip: "",
+        country: ""
+      };
+      console.warn("⚠️ Customer has NO default_address. Loaded fallback minimal profile:", window.REQUESTER);
+    </script>
+  {% else %}
+    <script>
+      window.REQUESTER = null;
+      console.warn("⚠️ No logged-in customer, REQUESTER is null.");
     </script>
   {% endif %}
 
-  <!-- MODAL HTML -->
+  <!-- MODAL -->
   <div id="rp-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
        background:rgba(0,0,0,0.45);z-index:99999;align-items:center;justify-content:center;">
     <div style="background:#fff;padding:24px;border-radius:8px;width:90%;max-width:420px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
@@ -54,23 +74,21 @@
 
       if (!btn) return;
 
-      // Set your backend server URL here
-      const BACKEND_URL = 'https://purchase-request-13ki.onrender.com'; 
+      // Backend → correctly using the route
+      const BACKEND_URL = "https://purchase-request-13ki.onrender.com/request-purchase";
 
-      // Open modal
       btn.addEventListener('click', () => {
         input.value = "";
         modal.style.display = "flex";
         setTimeout(() => input.focus(), 50);
       });
 
-      // Close modal
       cancelBtn.addEventListener('click', () => modal.style.display = "none");
+
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.style.display = "none";
       });
 
-      // Submit
       submitBtn.addEventListener('click', async () => {
         const recipient = input.value.trim();
         if (!recipient) {
@@ -82,25 +100,33 @@
 
         try {
           const cart = await fetch('/cart.js').then(r => r.json());
-          const requester = window.REQUESTER || null;
+          const requester = window.REQUESTER;
 
-          console.log("Posting request:", { recipient, cart, requester });
+          console.log("Sending purchase request payload:", {
+            recipient_email: recipient,
+            cart,
+            requester
+          });
 
           const resp = await fetch(BACKEND_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: recipient, cart, requester })
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: recipient,
+              cart,
+              requester
+            })
           });
 
           let result;
-          try { result = await resp.json(); } catch(e) { result = null; }
+          try { result = await resp.json(); } catch (e) { result = null; }
 
           if (resp.ok && result?.success) {
             alert("Request sent! The recipient will receive an invoice link.");
-            console.log("Draft ID:", result.draft_id, "Invoice:", result.invoice_url);
+            console.log("Draft Order:", result.draft_id, "Invoice URL:", result.invoice_url);
           } else {
             alert("Error sending request. Check console.");
-            console.error("Request error:", resp.status, result);
+            console.error("Backend error:", resp.status, result);
           }
 
         } catch (err) {
