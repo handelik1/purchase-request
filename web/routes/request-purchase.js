@@ -4,56 +4,77 @@ const router = express.Router();
 
 /**
  * POST /request-purchase
- * Receives: { recipient, email, cart, requester }
- * Creates Shopify Draft Order using requester's shipping info.
+ * Receives: { email, cart, requester }
+ * requester = logged-in Shopify customer info injected via Liquid
  */
 router.post("/", async (req, res) => {
   try {
-    // Support both "recipient" and "email"
     const recipientEmail = req.body?.recipient || req.body?.email;
     const cart = req.body?.cart;
     const requester = req.body?.requester;
 
-    console.log("📥 Incoming /request-purchase:", {
+    console.log("📥 Incoming /request-purchase request", {
       recipientEmail,
-      cartItems: cart?.items?.length,
-      requesterProvided: !!requester
+      cartItems: cart?.items?.length || 0,
+      requesterReceived: requester ? true : false
     });
 
-    if (!recipientEmail)
-      return res.status(400).json({ success: false, error: "Missing recipient email" });
+    // -----------------------------
+    // Validation
+    // -----------------------------
+    if (!recipientEmail) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Recipient email missing" });
+    }
 
-    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0)
-      return res.status(400).json({ success: false, error: "Cart empty or invalid" });
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Cart empty or invalid" });
+    }
 
     const shop = process.env.SHOPIFY_SHOP_DOMAIN;
     const adminToken = process.env.SHOPIFY_ADMIN_API_TOKEN;
 
     if (!shop || !adminToken) {
       console.error("❌ Missing SHOPIFY_SHOP_DOMAIN or SHOPIFY_ADMIN_API_TOKEN");
-      return res.status(500).json({ success: false, error: "Server misconfiguration" });
+      return res
+        .status(500)
+        .json({ success: false, error: "Server misconfiguration" });
     }
 
-    // Convert Shopify cart.js → DraftOrder line items
-    const line_items = cart.items.map((item) => ({
-      variant_id: Number(item.variant_id || item.id), // Shopify cart.js uses variant_id
-      quantity: Number(item.quantity || 1)
-    }));
+    // -----------------------------
+    // Convert cart.js → Draft Order line items
+    // -----------------------------
+    const line_items = cart.items.map((item) => {
+      const variantId = Number(item.variant_id || item.id || null);
+      return {
+        variant_id: variantId,
+        quantity: Number(item.quantity) || 1
+      };
+    });
 
-    // Build requester shipping / billing object
-    const address = requester
-      ? {
-          first_name: requester.first_name || undefined,
-          last_name: requester.last_name || undefined,
-          address1: requester.address1 || undefined,
-          address2: requester.address2 || undefined,
-          city: requester.city || undefined,
-          province: requester.province || undefined,
-          zip: requester.zip || undefined,
-          country: requester.country || undefined
-        }
-      : undefined;
+    // -----------------------------
+    // Build Requester Address
+    // -----------------------------
+    const address =
+      requester && requester.email
+        ? {
+            first_name: requester.first_name || undefined,
+            last_name: requester.last_name || undefined,
+            address1: requester.address1 || undefined,
+            address2: requester.address2 || undefined,
+            city: requester.city || undefined,
+            province: requester.province || undefined,
+            zip: requester.zip || undefined,
+            country: requester.country || undefined
+          }
+        : undefined;
 
+    // -----------------------------
+    // Draft Order Body
+    // -----------------------------
     const draftOrderBody = {
       draft_order: {
         line_items,
@@ -64,9 +85,8 @@ router.post("/", async (req, res) => {
       }
     };
 
-    console.log("🛒 Creating Draft Order:", draftOrderBody);
+    console.log("🛒 Draft Order Payload:", draftOrderBody);
 
-    // Shopify Admin API
     const url = `https://${shop}/admin/api/2025-01/draft_orders.json`;
 
     const resp = await fetch(url, {
@@ -79,53 +99,63 @@ router.post("/", async (req, res) => {
     });
 
     if (!resp.ok) {
-      const text = await resp.text();
-      console.error("❌ Shopify draft order creation failed:", resp.status, text);
+      const errorText = await resp.text();
+      console.error("❌ Draft order NOT created:", resp.status, errorText);
       return res.status(500).json({
         success: false,
-        error: "Draft order creation failed",
-        details: text
+        error: "Shopify draft order creation failed",
+        details: errorText
       });
     }
 
     const data = await resp.json();
     const draft = data.draft_order;
+    const invoice_url = draft.invoice_url;
 
-    console.log("✅ Draft order created:", draft?.id);
+    console.log("✅ Draft order created:", draft.id);
 
-    const invoice_url = draft?.invoice_url;
-
-    // Build email markup
+    // -----------------------------
+    // Build Email
+    // -----------------------------
     const cartHtml = cart.items
-      .map((i) => `<li>${i.title || "Item"} (qty: ${i.quantity})</li>`)
+      .map(
+        (i) =>
+          `<li>${i.title || "Item"} — qty ${i.quantity || 1} — $${(i.final_line_price || 0) / 100
+          }</li>`
+      )
       .join("");
 
-    const addressHtml = requester
+    const addressHtml = address
       ? `
-        ${requester.first_name || ""} ${requester.last_name || ""}<br>
-        ${requester.address1 || ""}<br>
-        ${requester.address2 || ""}<br>
-        ${requester.city || ""}, ${requester.province || ""} ${requester.zip || ""}<br>
-        ${requester.country || ""}<br>
+        ${address.first_name || ""} ${address.last_name || ""}<br>
+        ${address.address1 || ""}<br>
+        ${address.address2 || ""}<br>
+        ${address.city || ""}, ${address.province || ""} ${address.zip || ""}<br>
+        ${address.country || ""}
       `
-      : "No address provided.";
+      : "No shipping address provided.";
 
     const html = `
       <h2>Purchase Request</h2>
-      <p>The following items were requested:</p>
+      <p>This customer is requesting you to complete a purchase:</p>
       <ul>${cartHtml}</ul>
-      <p><strong>Requester shipping:</strong></p>
+
+      <h3>Shipping Information</h3>
       <p>${addressHtml}</p>
+
       <p>
-        <a href="${invoice_url}"
-          style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
+        <a href="${invoice_url}" 
+           style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
           Approve & Pay
         </a>
       </p>
-      <p>Or open this link: <a href="${invoice_url}">${invoice_url}</a></p>
+      <p>If the button doesn't work, open this link:<br>
+      <a href="${invoice_url}">${invoice_url}</a></p>
     `;
 
-    // EMAIL via Mailgun
+    // -----------------------------
+    // Email via Mailgun
+    // -----------------------------
     const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
     const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
     const MAILGUN_BASE = process.env.MAILGUN_BASE_URL || "https://api.mailgun.net/v3";
@@ -140,7 +170,10 @@ router.post("/", async (req, res) => {
         process.env.FROM_EMAIL || `Purchase Request <support@${MAILGUN_DOMAIN}>`
       );
       form.append("to", recipientEmail);
-      form.append("subject", `Purchase request from ${requester?.first_name || "Customer"}`);
+      form.append(
+        "subject",
+        `Purchase request from ${requester?.first_name || "Customer"}`
+      );
       form.append("html", html);
 
       const mailResp = await fetch(mailUrl, {
@@ -153,23 +186,29 @@ router.post("/", async (req, res) => {
       });
 
       if (!mailResp.ok) {
-        console.error("❌ Mailgun failed:", await mailResp.text());
+        console.error("❌ Mailgun Error:", await mailResp.text());
       } else {
-        console.log("📧 Email sent to", recipientEmail);
+        console.log("📧 Email successfully sent to:", recipientEmail);
       }
     } else {
-      console.warn("⚠️ Mailgun keys missing, skipping email.");
+      console.warn("⚠️ Mailgun disabled: missing keys.");
     }
 
+    // -----------------------------
+    // Final Response
+    // -----------------------------
     return res.json({
       success: true,
-      draft_id: draft?.id,
+      draft_id: draft.id,
       invoice_url
     });
   } catch (err) {
-    console.error("🔥 Request handler crashed:", err);
+    console.error("🔥 Server Error:", err);
     if (!res.headersSent)
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Server crashed"
+      });
   }
 });
 

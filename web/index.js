@@ -8,19 +8,22 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Allowlist — the only correct origins you will ever get requests from
+// -------------------------------------
+// ✅ ALLOWED ORIGINS
+// -------------------------------------
 const ALLOWED_ORIGINS = [
-  process.env.SHOPIFY_DEV_STORE_ORIGIN,
-  "https://testing-approval.myshopify.com"
+  process.env.SHOPIFY_DEV_STORE_ORIGIN, // your dev origin
+  "https://testing-approval.myshopify.com" // live store
 ];
 
-// CORS handler with dynamic accept
+// -------------------------------------
+// ✅ CORS HANDLER
+// -------------------------------------
 app.use(cors({
   origin: function (origin, callback) {
     // Allow server-to-server or curl/postman (no origin)
     if (!origin) return callback(null, true);
 
-    // If origin is in allowlist → allow
     if (ALLOWED_ORIGINS.includes(origin)) {
       return callback(null, true);
     }
@@ -33,9 +36,15 @@ app.use(cors({
   credentials: true
 }));
 
-// -----------------------------
-// ✅ Routes
-// -----------------------------
+// ----------------------------------------------------------
+// ✅ IMPORTANT: Shopify App Proxy actually hits:
+//    /apps/request-purchase  → forwarded to your backend
+// ----------------------------------------------------------
+app.use("/apps/request-purchase", requestPurchaseRouter);
+
+// ----------------------------------------------------------
+// Also allow direct access for testing
+// ----------------------------------------------------------
 app.use("/request-purchase", requestPurchaseRouter);
 
 // Makes hitting the root URL show you're online

@@ -1,10 +1,10 @@
-<div style="margin-top:20px" class="button-wrapper-2">
+<div style="margin-top:20px" class="button-wrapper-3">
   <button id="request-purchase-btn" type="button"
     style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
     Request Purchase
   </button>
 
-  {% if customer and customer.default_address %}
+  {%- if customer and customer.default_address -%}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
@@ -17,9 +17,9 @@
         zip: "{{ customer.default_address.zip | escape }}",
         country: "{{ customer.default_address.country | escape }}"
       };
-      console.log("REQUESTER loaded with default address:", window.REQUESTER);
+      console.log("REQUESTER loaded using default_address:", window.REQUESTER);
     </script>
-  {% elsif customer %}
+  {%- elsif customer -%}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
@@ -32,14 +32,14 @@
         zip: "",
         country: ""
       };
-      console.warn("⚠️ Customer has NO default_address. Loaded fallback minimal profile:", window.REQUESTER);
+      console.warn("⚠️ Customer has NO default_address. Using minimal requester info:", window.REQUESTER);
     </script>
-  {% else %}
+  {%- else -%}
     <script>
       window.REQUESTER = null;
-      console.warn("⚠️ No logged-in customer, REQUESTER is null.");
+      console.warn("⚠️ No logged-in customer. REQUESTER is null.");
     </script>
-  {% endif %}
+  {%- endif -%}
 
   <!-- MODAL -->
   <div id="rp-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
@@ -74,8 +74,10 @@
 
       if (!btn) return;
 
-      // Backend → correctly using the route
-      const BACKEND_URL = "https://purchase-request-13ki.onrender.com/request-purchase";
+      // ------------------------------------------------------
+      // ✅ Correct backend URL — now works for App Proxy AND direct calls
+      // ------------------------------------------------------
+      const BACKEND_URL = "https://purchase-request-13ki.onrender.com/apps/request-purchase";
 
       btn.addEventListener('click', () => {
         input.value = "";
@@ -118,8 +120,8 @@
             })
           });
 
-          let result;
-          try { result = await resp.json(); } catch (e) { result = null; }
+          let result = null;
+          try { result = await resp.json(); } catch {}
 
           if (resp.ok && result?.success) {
             alert("Request sent! The recipient will receive an invoice link.");
