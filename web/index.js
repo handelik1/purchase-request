@@ -37,23 +37,26 @@ app.use(cors({
 }));
 
 // ----------------------------------------------------------
-// ✅ IMPORTANT: Shopify App Proxy actually hits:
-//    /apps/request-purchase  → forwarded to your backend
+// ✅ Routes
 // ----------------------------------------------------------
+// Shopify App Proxy hits this route
 app.use("/apps/request-purchase", requestPurchaseRouter);
 
-// ----------------------------------------------------------
-// Also allow direct access for testing
-// ----------------------------------------------------------
+// Direct route access for testing
 app.use("/request-purchase", requestPurchaseRouter);
 
-// Makes hitting the root URL show you're online
+// Root URL for quick online check
 app.get("/", (_req, res) => res.send("Backend online"));
 
+// ----------------------------------------------------------
 // Crash logging
+// ----------------------------------------------------------
 process.on("uncaughtException", (err) => console.error("UNCAUGHT EX:", err));
 process.on("unhandledRejection", (err) => console.error("UNHANDLED REJECTION:", err));
 
+// ----------------------------------------------------------
+// Start server
+// ----------------------------------------------------------
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`✅ Server listening on port ${PORT}`);

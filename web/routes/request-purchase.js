@@ -4,8 +4,12 @@ const router = express.Router();
 
 /**
  * POST /request-purchase
- * Receives: { email, cart, requester }
- * requester = logged-in Shopify customer info injected via Liquid
+ * Receives:
+ * recipient  -> email to send to
+ * cart       -> Shopify cart.js object
+ * requester  -> logged-in customer details
+ * senderName -> Name user typed in modal
+ * senderLocation -> Location user typed
  */
 router.post("/", async (req, res) => {
   try {
@@ -13,25 +17,34 @@ router.post("/", async (req, res) => {
     const cart = req.body?.cart;
     const requester = req.body?.requester;
 
+    const senderName = req.body?.senderName;
+    const senderLocation = req.body?.senderLocation;
+
     console.log("📥 Incoming /request-purchase request", {
       recipientEmail,
       cartItems: cart?.items?.length || 0,
-      requesterReceived: requester ? true : false
+      requesterReceived: requester ? true : false,
+      senderName,
+      senderLocation
     });
 
     // -----------------------------
     // Validation
     // -----------------------------
     if (!recipientEmail) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Recipient email missing" });
+      return res.status(400).json({ success: false, error: "Recipient email missing" });
+    }
+
+    if (!senderName) {
+      return res.status(400).json({ success: false, error: "Sender name missing" });
+    }
+
+    if (!senderLocation) {
+      return res.status(400).json({ success: false, error: "Sender location missing" });
     }
 
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Cart empty or invalid" });
+      return res.status(400).json({ success: false, error: "Cart empty or invalid" });
     }
 
     const shop = process.env.SHOPIFY_SHOP_DOMAIN;
@@ -39,13 +52,11 @@ router.post("/", async (req, res) => {
 
     if (!shop || !adminToken) {
       console.error("❌ Missing SHOPIFY_SHOP_DOMAIN or SHOPIFY_ADMIN_API_TOKEN");
-      return res
-        .status(500)
-        .json({ success: false, error: "Server misconfiguration" });
+      return res.status(500).json({ success: false, error: "Server misconfiguration" });
     }
 
     // -----------------------------
-    // Convert cart.js → Draft Order line items
+    // Convert cart → Draft order line items
     // -----------------------------
     const line_items = cart.items.map((item) => {
       const variantId = Number(item.variant_id || item.id || null);
@@ -115,16 +126,8 @@ router.post("/", async (req, res) => {
     console.log("✅ Draft order created:", draft.id);
 
     // -----------------------------
-    // Build Email
+    // Build Email (NO cart items)
     // -----------------------------
-    const cartHtml = cart.items
-      .map(
-        (i) =>
-          `<li>${i.title || "Item"} — qty ${i.quantity || 1} — $${(i.final_line_price || 0) / 100
-          }</li>`
-      )
-      .join("");
-
     const addressHtml = address
       ? `
         ${address.first_name || ""} ${address.last_name || ""}<br>
@@ -137,24 +140,24 @@ router.post("/", async (req, res) => {
 
     const html = `
       <h2>Purchase Request</h2>
-      <p>This customer is requesting you to complete a purchase:</p>
-      <ul>${cartHtml}</ul>
+      <p><strong>${senderName}</strong> from <strong>${senderLocation}</strong> is asking you to complete a purchase.</p>
 
       <h3>Shipping Information</h3>
       <p>${addressHtml}</p>
 
       <p>
-        <a href="${invoice_url}" 
+        <a href="${invoice_url}"
            style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
           Approve & Pay
         </a>
       </p>
+
       <p>If the button doesn't work, open this link:<br>
       <a href="${invoice_url}">${invoice_url}</a></p>
     `;
 
     // -----------------------------
-    // Email via Mailgun
+    // Send Email via Mailgun
     // -----------------------------
     const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
     const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
@@ -172,7 +175,7 @@ router.post("/", async (req, res) => {
       form.append("to", recipientEmail);
       form.append(
         "subject",
-        `Purchase request from ${requester?.first_name || "Customer"}`
+        `Purchase request from ${senderName}`
       );
       form.append("html", html);
 
@@ -202,6 +205,7 @@ router.post("/", async (req, res) => {
       draft_id: draft.id,
       invoice_url
     });
+
   } catch (err) {
     console.error("🔥 Server Error:", err);
     if (!res.headersSent)
