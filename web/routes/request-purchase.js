@@ -4,26 +4,20 @@ const router = express.Router();
 
 /**
  * POST /request-purchase
- * Receives:
- * recipient  -> email to send to
- * cart       -> Shopify cart.js object
- * requester  -> logged-in customer details
- * senderName -> Name user typed in modal
- * senderLocation -> Location user typed
+ * Receives: { email, cart, requester, senderName, senderLocation }
  */
 router.post("/", async (req, res) => {
   try {
     const recipientEmail = req.body?.recipient || req.body?.email;
     const cart = req.body?.cart;
     const requester = req.body?.requester;
-
     const senderName = req.body?.senderName;
     const senderLocation = req.body?.senderLocation;
 
     console.log("📥 Incoming /request-purchase request", {
       recipientEmail,
       cartItems: cart?.items?.length || 0,
-      requesterReceived: requester ? true : false,
+      requesterReceived: !!requester,
       senderName,
       senderLocation
     });
@@ -31,21 +25,11 @@ router.post("/", async (req, res) => {
     // -----------------------------
     // Validation
     // -----------------------------
-    if (!recipientEmail) {
-      return res.status(400).json({ success: false, error: "Recipient email missing" });
-    }
-
-    if (!senderName) {
-      return res.status(400).json({ success: false, error: "Sender name missing" });
-    }
-
-    if (!senderLocation) {
-      return res.status(400).json({ success: false, error: "Sender location missing" });
-    }
-
-    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+    if (!recipientEmail) return res.status(400).json({ success: false, error: "Recipient email missing" });
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0)
       return res.status(400).json({ success: false, error: "Cart empty or invalid" });
-    }
+    if (!senderName || !senderLocation)
+      return res.status(400).json({ success: false, error: "Sender name or location missing" });
 
     const shop = process.env.SHOPIFY_SHOP_DOMAIN;
     const adminToken = process.env.SHOPIFY_ADMIN_API_TOKEN;
@@ -56,32 +40,28 @@ router.post("/", async (req, res) => {
     }
 
     // -----------------------------
-    // Convert cart → Draft order line items
+    // Convert cart.js → Draft Order line items
     // -----------------------------
-    const line_items = cart.items.map((item) => {
-      const variantId = Number(item.variant_id || item.id || null);
-      return {
-        variant_id: variantId,
-        quantity: Number(item.quantity) || 1
-      };
-    });
+    const line_items = cart.items.map(item => ({
+      variant_id: Number(item.variant_id || item.id),
+      quantity: Number(item.quantity || 1)
+    }));
 
     // -----------------------------
-    // Build Requester Address
+    // Build requester shipping/billing address
     // -----------------------------
-    const address =
-      requester && requester.email
-        ? {
-            first_name: requester.first_name || undefined,
-            last_name: requester.last_name || undefined,
-            address1: requester.address1 || undefined,
-            address2: requester.address2 || undefined,
-            city: requester.city || undefined,
-            province: requester.province || undefined,
-            zip: requester.zip || undefined,
-            country: requester.country || undefined
-          }
-        : undefined;
+    const address = requester?.email
+      ? {
+          first_name: requester.first_name,
+          last_name: requester.last_name,
+          address1: requester.address1,
+          address2: requester.address2,
+          city: requester.city,
+          province: requester.province,
+          zip: requester.zip,
+          country: requester.country
+        }
+      : undefined;
 
     // -----------------------------
     // Draft Order Body
@@ -95,8 +75,6 @@ router.post("/", async (req, res) => {
         use_customer_default_address: false
       }
     };
-
-    console.log("🛒 Draft Order Payload:", draftOrderBody);
 
     const url = `https://${shop}/admin/api/2025-01/draft_orders.json`;
 
@@ -112,46 +90,25 @@ router.post("/", async (req, res) => {
     if (!resp.ok) {
       const errorText = await resp.text();
       console.error("❌ Draft order NOT created:", resp.status, errorText);
-      return res.status(500).json({
-        success: false,
-        error: "Shopify draft order creation failed",
-        details: errorText
-      });
+      return res.status(500).json({ success: false, error: "Shopify draft order creation failed", details: errorText });
     }
 
     const data = await resp.json();
     const draft = data.draft_order;
     const invoice_url = draft.invoice_url;
 
-    console.log("✅ Draft order created:", draft.id);
-
     // -----------------------------
-    // Build Email (NO cart items)
+    // Build Email with sender info only
     // -----------------------------
-    const addressHtml = address
-      ? `
-        ${address.first_name || ""} ${address.last_name || ""}<br>
-        ${address.address1 || ""}<br>
-        ${address.address2 || ""}<br>
-        ${address.city || ""}, ${address.province || ""} ${address.zip || ""}<br>
-        ${address.country || ""}
-      `
-      : "No shipping address provided.";
-
     const html = `
       <h2>Purchase Request</h2>
-      <p><strong>${senderName}</strong> from <strong>${senderLocation}</strong> is asking you to complete a purchase.</p>
-
-      <h3>Shipping Information</h3>
-      <p>${addressHtml}</p>
-
+      <p>${senderName} from ${senderLocation} is requesting you to complete a purchase.</p>
       <p>
-        <a href="${invoice_url}"
+        <a href="${invoice_url}" 
            style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
           Approve & Pay
         </a>
       </p>
-
       <p>If the button doesn't work, open this link:<br>
       <a href="${invoice_url}">${invoice_url}</a></p>
     `;
@@ -168,15 +125,9 @@ router.post("/", async (req, res) => {
       const auth = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64");
 
       const form = new URLSearchParams();
-      form.append(
-        "from",
-        process.env.FROM_EMAIL || `Purchase Request <support@${MAILGUN_DOMAIN}>`
-      );
+      form.append("from", process.env.FROM_EMAIL || `Purchase Request <support@${MAILGUN_DOMAIN}>`);
       form.append("to", recipientEmail);
-      form.append(
-        "subject",
-        `Purchase request from ${senderName}`
-      );
+      form.append("subject", `Purchase request from ${senderName}`);
       form.append("html", html);
 
       const mailResp = await fetch(mailUrl, {
@@ -188,31 +139,17 @@ router.post("/", async (req, res) => {
         body: form.toString()
       });
 
-      if (!mailResp.ok) {
-        console.error("❌ Mailgun Error:", await mailResp.text());
-      } else {
-        console.log("📧 Email successfully sent to:", recipientEmail);
-      }
-    } else {
-      console.warn("⚠️ Mailgun disabled: missing keys.");
-    }
+      if (!mailResp.ok) console.error("❌ Mailgun Error:", await mailResp.text());
+      else console.log("📧 Email successfully sent to:", recipientEmail);
+    } else console.warn("⚠️ Mailgun disabled: missing keys.");
 
     // -----------------------------
-    // Final Response
+    // Response
     // -----------------------------
-    return res.json({
-      success: true,
-      draft_id: draft.id,
-      invoice_url
-    });
-
+    return res.json({ success: true, draft_id: draft.id, invoice_url });
   } catch (err) {
     console.error("🔥 Server Error:", err);
-    if (!res.headersSent)
-      return res.status(500).json({
-        success: false,
-        error: err.message || "Server crashed"
-      });
+    if (!res.headersSent) res.status(500).json({ success: false, error: err.message || "Server crashed" });
   }
 });
 

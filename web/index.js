@@ -12,7 +12,7 @@ app.use(express.json());
 // ✅ ALLOWED ORIGINS
 // -------------------------------------
 const ALLOWED_ORIGINS = [
-  process.env.SHOPIFY_DEV_STORE_ORIGIN, // your dev origin
+  process.env.SHOPIFY_DEV_STORE_ORIGIN, // dev store
   "https://testing-approval.myshopify.com" // live store
 ];
 
@@ -21,7 +21,7 @@ const ALLOWED_ORIGINS = [
 // -------------------------------------
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow server-to-server or curl/postman (no origin)
+    // Allow server-to-server requests or curl/postman (no origin)
     if (!origin) return callback(null, true);
 
     if (ALLOWED_ORIGINS.includes(origin)) {
@@ -36,27 +36,31 @@ app.use(cors({
   credentials: true
 }));
 
-// ----------------------------------------------------------
-// ✅ Routes
-// ----------------------------------------------------------
-// Shopify App Proxy hits this route
+// -------------------------------------
+// ✅ Shopify App Proxy
+// Forward /apps/request-purchase → requestPurchaseRouter
+// -------------------------------------
 app.use("/apps/request-purchase", requestPurchaseRouter);
 
-// Direct route access for testing
+// -------------------------------------
+// ✅ Direct access for testing
+// -------------------------------------
 app.use("/request-purchase", requestPurchaseRouter);
 
-// Root URL for quick online check
+// -------------------------------------
+// Root URL
+// -------------------------------------
 app.get("/", (_req, res) => res.send("Backend online"));
 
-// ----------------------------------------------------------
+// -------------------------------------
 // Crash logging
-// ----------------------------------------------------------
+// -------------------------------------
 process.on("uncaughtException", (err) => console.error("UNCAUGHT EX:", err));
 process.on("unhandledRejection", (err) => console.error("UNHANDLED REJECTION:", err));
 
-// ----------------------------------------------------------
-// Start server
-// ----------------------------------------------------------
+// -------------------------------------
+// Listen
+// -------------------------------------
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`✅ Server listening on port ${PORT}`);

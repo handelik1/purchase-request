@@ -4,41 +4,54 @@
     Request Purchase
   </button>
 
-  {%- if customer -%}
-    {%- assign addr = customer.default_address | default: customer -%}
-
+  {%- if customer and customer.default_address -%}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
-        first_name: "{{ addr.first_name | escape }}",
-        last_name: "{{ addr.last_name | escape }}",
-        city: "{{ addr.city | escape }}",
-        province: "{{ addr.province | escape }}",
-        country: "{{ addr.country | escape }}"
+        first_name: "{{ customer.default_address.first_name | default: customer.first_name | escape }}",
+        last_name: "{{ customer.default_address.last_name | default: customer.last_name | escape }}",
+        address1: "{{ customer.default_address.address1 | escape }}",
+        address2: "{{ customer.default_address.address2 | escape }}",
+        city: "{{ customer.default_address.city | escape }}",
+        province: "{{ customer.default_address.province | escape }}",
+        zip: "{{ customer.default_address.zip | escape }}",
+        country: "{{ customer.default_address.country | escape }}"
       };
-      console.log("REQUESTER:", window.REQUESTER);
+      console.log("REQUESTER loaded using default_address:", window.REQUESTER);
+    </script>
+  {%- elsif customer -%}
+    <script>
+      window.REQUESTER = {
+        email: "{{ customer.email | escape }}",
+        first_name: "{{ customer.first_name | escape }}",
+        last_name: "{{ customer.last_name | escape }}",
+        address1: "",
+        address2: "",
+        city: "",
+        province: "",
+        zip: "",
+        country: ""
+      };
+      console.warn("⚠️ Customer has NO default_address. Using minimal requester info:", window.REQUESTER);
     </script>
   {%- else -%}
     <script>
       window.REQUESTER = null;
+      console.warn("⚠️ No logged-in customer. REQUESTER is null.");
     </script>
   {%- endif -%}
 
-  <!-- REQUEST PURCHASE MODAL -->
-  <div id="request-modal" style="
-      display:none; position: fixed; inset: 0;
+  <!-- MODAL -->
+  <div id="request-modal" style="display:none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.6); padding: 40px; z-index: 9999;">
     <div style="background:white; padding:30px; max-width:420px; margin:auto; border-radius:10px;">
-
       <h2 style="margin-bottom:10px;">Request Purchase</h2>
 
       <label>Email of the person who will approve the purchase</label>
-      <input id="recipient-email" type="email"
-        style="width:100%; padding:8px; margin:6px 0 14px;" />
+      <input id="recipient-email" type="email" style="width:100%; padding:8px; margin:6px 0 14px;" />
 
       <label>Your Name</label>
-      <input id="requester-name" type="text"
-        style="width:100%; padding:8px; margin:6px 0 14px;" />
+      <input id="requester-name" type="text" style="width:100%; padding:8px; margin:6px 0 14px;" />
 
       <label>Your Location</label>
       <input id="requester-location" type="text" placeholder="City, State"
@@ -53,93 +66,74 @@
         style="margin-top:10px; width:100%; padding:12px; background:#eee;">
         Cancel
       </button>
-
     </div>
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const modal = document.getElementById("request-modal");
-      const openBtn = document.getElementById("request-purchase-btn");
-      const closeBtn = document.getElementById("close-request-modal");
-      const sendBtn = document.getElementById("send-request-btn");
+    document.addEventListener('DOMContentLoaded', () => {
+      const openBtn = document.getElementById('request-purchase-btn');
+      const modal = document.getElementById('request-modal');
+      const closeBtn = document.getElementById('close-request-modal');
+      const sendBtn = document.getElementById('send-request-btn');
 
-      const inputRecipient = document.getElementById("recipient-email");
-      const inputName = document.getElementById("requester-name");
-      const inputLoc = document.getElementById("requester-location");
+      if (!openBtn) return;
 
-      const BACKEND_URL = "https://purchase-request-13ki.onrender.com/request-purchase";
+      const BACKEND_URL = "https://purchase-request-13ki.onrender.com/apps/request-purchase";
 
-      // Prefill name/location from window.REQUESTER
-      function preloadRequesterFields() {
-        if (!window.REQUESTER) return;
-
-        inputName.value =
-          (window.REQUESTER.first_name || "") +
-          (window.REQUESTER.last_name ? " " + window.REQUESTER.last_name : "");
-
-        let loc = "";
-        if (window.REQUESTER.city) loc += window.REQUESTER.city;
-        if (window.REQUESTER.province) loc += ", " + window.REQUESTER.province;
-        if (window.REQUESTER.country) loc += " (" + window.REQUESTER.country + ")";
-
-        inputLoc.value = loc;
-      }
-
-      // Open modal
-      openBtn.addEventListener("click", () => {
-        preloadRequesterFields();
+      openBtn.addEventListener('click', () => {
         modal.style.display = "block";
       });
 
-      // Close modal
-      closeBtn.addEventListener("click", () => {
+      closeBtn.addEventListener('click', () => {
         modal.style.display = "none";
       });
 
-      modal.addEventListener("click", (e) => {
+      modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.style.display = "none";
       });
 
-      // Send request
-      sendBtn.addEventListener("click", async () => {
-        const recipient = inputRecipient.value.trim();
-        const name = inputName.value.trim();
-        const location = inputLoc.value.trim();
+      sendBtn.addEventListener('click', async () => {
+        const recipient = document.getElementById('recipient-email').value.trim();
+        const senderName = document.getElementById('requester-name').value.trim();
+        const senderLocation = document.getElementById('requester-location').value.trim();
 
-        if (!recipient) return alert("Please enter the recipient email.");
-        if (!name) return alert("Please enter your name.");
+        if (!recipient) return alert("Please enter a valid recipient email.");
+        if (!senderName) return alert("Please enter your name.");
+        if (!senderLocation) return alert("Please enter your location.");
 
         modal.style.display = "none";
 
         try {
-          const cart = await fetch("/cart.js").then((res) => res.json());
+          const cart = await fetch('/cart.js').then(r => r.json());
+          const requester = window.REQUESTER;
 
-          const payload = {
-            recipient,
-            requester: { name, location },
-            cart
-          };
-
-          console.log("📤 Sending payload:", payload);
+          console.log("Sending purchase request payload:", { recipient, cart, requester, senderName, senderLocation });
 
           const resp = await fetch(BACKEND_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+              email: recipient,
+              cart,
+              requester,
+              senderName,
+              senderLocation
+            })
           });
 
-          const data = await resp.json();
+          let result = null;
+          try { result = await resp.json(); } catch {}
 
-          if (data.success) {
-            alert("Request sent successfully!");
+          if (resp.ok && result?.success) {
+            alert("Request sent! The recipient will receive an invoice link.");
+            console.log("Draft Order:", result.draft_id, "Invoice URL:", result.invoice_url);
           } else {
-            alert("Error sending request.");
-            console.error("Server error:", data);
+            alert("Error sending request. Check console.");
+            console.error("Backend error:", resp.status, result);
           }
-        } catch (e) {
-          console.error("Network error:", e);
-          alert("Unable to send request.");
+        } catch (err) {
+          console.error("Fetch error:", err);
+          alert("Error sending request.");
         }
       });
     });
