@@ -32,21 +32,20 @@ router.post("/", async (req, res) => {
       return res.status(500).json({ success: false, error: "Server misconfiguration" });
     }
 
-    // ------------------------------------------
-    // Convert cart.js -> Draft Order line items
-    // WITH CUSTOM PROPERTIES
+
+    // Convert cart.js -> Draft Order line items WITH CUSTOM PROPERTIES
     // ------------------------------------------
     const line_items = cart.items.map(item => ({
       variant_id: Number(item.variant_id || item.id),
       quantity: Number(item.quantity || 1),
-      properties: mappedItem.properties
-      ? Object.entries(mappedItem.properties).map(([key, value]) => ({
-          name: key,
-          value: String(value)
-        }))
-      : [],
-
+      properties: item.properties
+        ? Object.entries(item.properties).map(([key, value]) => ({
+            name: key,
+            value: String(value)
+          }))
+        : []
     }));
+
 
     // Address mapping
     const address = requester?.email
