@@ -2,10 +2,6 @@ import express from "express";
 
 const router = express.Router();
 
-/**
- * POST /request-purchase
- * Receives: { email, cart, requester, senderName, senderLocation }
- */
 router.post("/", async (req, res) => {
   try {
     const recipientEmail = req.body?.recipient || req.body?.email;
@@ -22,9 +18,7 @@ router.post("/", async (req, res) => {
       senderLocation
     });
 
-    // -----------------------------
     // Validation
-    // -----------------------------
     if (!recipientEmail) return res.status(400).json({ success: false, error: "Recipient email missing" });
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0)
       return res.status(400).json({ success: false, error: "Cart empty or invalid" });
@@ -35,21 +29,20 @@ router.post("/", async (req, res) => {
     const adminToken = process.env.SHOPIFY_ADMIN_API_TOKEN;
 
     if (!shop || !adminToken) {
-      console.error("❌ Missing SHOPIFY_SHOP_DOMAIN or SHOPIFY_ADMIN_API_TOKEN");
       return res.status(500).json({ success: false, error: "Server misconfiguration" });
     }
 
-    // -----------------------------
-    // Convert cart.js → Draft Order line items
-    // -----------------------------
+    // ------------------------------------------
+    // Convert cart.js -> Draft Order line items
+    // WITH CUSTOM PROPERTIES
+    // ------------------------------------------
     const line_items = cart.items.map(item => ({
       variant_id: Number(item.variant_id || item.id),
-      quantity: Number(item.quantity || 1)
+      quantity: Number(item.quantity || 1),
+      properties: item.properties || {}    // ⭐ THIS FIXES YOUR PROBLEM ⭐
     }));
 
-    // -----------------------------
-    // Build requester shipping/billing address
-    // -----------------------------
+    // Address mapping
     const address = requester?.email
       ? {
           first_name: requester.first_name,
@@ -63,9 +56,7 @@ router.post("/", async (req, res) => {
         }
       : undefined;
 
-    // -----------------------------
-    // Draft Order Body
-    // -----------------------------
+    // Draft Order body
     const draftOrderBody = {
       draft_order: {
         line_items,
@@ -89,33 +80,35 @@ router.post("/", async (req, res) => {
 
     if (!resp.ok) {
       const errorText = await resp.text();
-      console.error("❌ Draft order NOT created:", resp.status, errorText);
-      return res.status(500).json({ success: false, error: "Shopify draft order creation failed", details: errorText });
+      console.error("❌ Draft order failed:", resp.status, errorText);
+      return res.status(500).json({ success: false, error: "Shopify draft order failed", details: errorText });
     }
 
     const data = await resp.json();
     const draft = data.draft_order;
     const invoice_url = draft.invoice_url;
 
-    // -----------------------------
-    // Build Email with sender info only
-    // -----------------------------
+    // ------------------------------------------
+    // Email Content (NO CART DETAILS)
+    // ------------------------------------------
     const html = `
       <h2>Purchase Request</h2>
       <p>${senderName} from ${senderLocation} is requesting you to complete a purchase.</p>
+
       <p>
         <a href="${invoice_url}" 
            style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
           Approve & Pay
         </a>
       </p>
+
       <p>If the button doesn't work, open this link:<br>
       <a href="${invoice_url}">${invoice_url}</a></p>
     `;
 
-    // -----------------------------
-    // Send Email via Mailgun
-    // -----------------------------
+    // ------------------------------------------
+    // Mailgun Email
+    // ------------------------------------------
     const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
     const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
     const MAILGUN_BASE = process.env.MAILGUN_BASE_URL || "https://api.mailgun.net/v3";
@@ -140,16 +133,15 @@ router.post("/", async (req, res) => {
       });
 
       if (!mailResp.ok) console.error("❌ Mailgun Error:", await mailResp.text());
-      else console.log("📧 Email successfully sent to:", recipientEmail);
-    } else console.warn("⚠️ Mailgun disabled: missing keys.");
+      else console.log("📧 Email sent →", recipientEmail);
+    }
 
-    // -----------------------------
-    // Response
-    // -----------------------------
+    // Final response
     return res.json({ success: true, draft_id: draft.id, invoice_url });
+
   } catch (err) {
     console.error("🔥 Server Error:", err);
-    if (!res.headersSent) res.status(500).json({ success: false, error: err.message || "Server crashed" });
+    if (!res.headersSent) res.status(500).json({ success: false, error: err.message });
   }
 });
 

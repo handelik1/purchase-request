@@ -21,12 +21,8 @@ const ALLOWED_ORIGINS = [
 // -------------------------------------
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow server-to-server requests or curl/postman (no origin)
-    if (!origin) return callback(null, true);
-
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
+    if (!origin) return callback(null, true); // allow server-to-server
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
 
     console.warn("❌ Blocked CORS Origin:", origin);
     return callback(new Error("Not allowed by CORS"));
@@ -37,30 +33,21 @@ app.use(cors({
 }));
 
 // -------------------------------------
-// ✅ Shopify App Proxy
-// Forward /apps/request-purchase → requestPurchaseRouter
+// Shopify App Proxy
 // -------------------------------------
 app.use("/apps/request-purchase", requestPurchaseRouter);
 
-// -------------------------------------
-// ✅ Direct access for testing
-// -------------------------------------
+// Direct access for testing
 app.use("/request-purchase", requestPurchaseRouter);
 
-// -------------------------------------
 // Root URL
-// -------------------------------------
 app.get("/", (_req, res) => res.send("Backend online"));
 
-// -------------------------------------
 // Crash logging
-// -------------------------------------
 process.on("uncaughtException", (err) => console.error("UNCAUGHT EX:", err));
 process.on("unhandledRejection", (err) => console.error("UNHANDLED REJECTION:", err));
 
-// -------------------------------------
 // Listen
-// -------------------------------------
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`✅ Server listening on port ${PORT}`);

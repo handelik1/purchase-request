@@ -17,31 +17,22 @@
         zip: "{{ customer.default_address.zip | escape }}",
         country: "{{ customer.default_address.country | escape }}"
       };
-      console.log("REQUESTER loaded using default_address:", window.REQUESTER);
     </script>
   {%- elsif customer -%}
     <script>
       window.REQUESTER = {
         email: "{{ customer.email | escape }}",
         first_name: "{{ customer.first_name | escape }}",
-        last_name: "{{ customer.last_name | escape }}",
-        address1: "",
-        address2: "",
-        city: "",
-        province: "",
-        zip: "",
-        country: ""
+        last_name: "{{ customer.last_name | escape }}"
       };
-      console.warn("⚠️ Customer has NO default_address. Using minimal requester info:", window.REQUESTER);
     </script>
   {%- else -%}
     <script>
       window.REQUESTER = null;
-      console.warn("⚠️ No logged-in customer. REQUESTER is null.");
     </script>
   {%- endif -%}
 
-  <!-- MODAL -->
+  <!-- Modal -->
   <div id="request-modal" style="display:none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.6); padding: 40px; z-index: 9999;">
     <div style="background:white; padding:30px; max-width:420px; margin:auto; border-radius:10px;">
@@ -80,14 +71,8 @@
 
       const BACKEND_URL = "https://purchase-request-13ki.onrender.com/apps/request-purchase";
 
-      openBtn.addEventListener('click', () => {
-        modal.style.display = "block";
-      });
-
-      closeBtn.addEventListener('click', () => {
-        modal.style.display = "none";
-      });
-
+      openBtn.addEventListener('click', () => modal.style.display = "block");
+      closeBtn.addEventListener('click', () => modal.style.display = "none");
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.style.display = "none";
       });
@@ -107,8 +92,6 @@
           const cart = await fetch('/cart.js').then(r => r.json());
           const requester = window.REQUESTER;
 
-          console.log("Sending purchase request payload:", { recipient, cart, requester, senderName, senderLocation });
-
           const resp = await fetch(BACKEND_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -126,10 +109,9 @@
 
           if (resp.ok && result?.success) {
             alert("Request sent! The recipient will receive an invoice link.");
-            console.log("Draft Order:", result.draft_id, "Invoice URL:", result.invoice_url);
           } else {
             alert("Error sending request. Check console.");
-            console.error("Backend error:", resp.status, result);
+            console.error("Backend error:", result);
           }
         } catch (err) {
           console.error("Fetch error:", err);
