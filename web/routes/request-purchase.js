@@ -39,7 +39,13 @@ router.post("/", async (req, res) => {
     const line_items = cart.items.map(item => ({
       variant_id: Number(item.variant_id || item.id),
       quantity: Number(item.quantity || 1),
-      properties: item.properties || {}    // ⭐ THIS FIXES YOUR PROBLEM ⭐
+      properties: mappedItem.properties
+      ? Object.entries(mappedItem.properties).map(([key, value]) => ({
+          name: key,
+          value: String(value)
+        }))
+      : [],
+
     }));
 
     // Address mapping
