@@ -103,7 +103,7 @@ router.post("/", async (req, res) => {
       <p>
         <a href="${invoice_url}" 
            style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
-          Approve & Pay
+          Approve Order
         </a>
       </p>
 
@@ -123,7 +123,7 @@ router.post("/", async (req, res) => {
       const auth = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64");
 
       const form = new URLSearchParams();
-      form.append("from", process.env.FROM_EMAIL || `Purchase Request <support@${MAILGUN_DOMAIN}>`);
+      form.append("from", `Order Approval <order-approval@extremedigital.net>`);
       form.append("to", recipientEmail);
       form.append("subject", `Purchase request from ${senderName}`);
       form.append("html", html);
