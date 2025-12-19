@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import requestPurchaseRouter from "./routes/request-purchase.js";
+import draftOrderLoaderRouter from "./routes/draft-order-loader.js";
 
 dotenv.config();
 
@@ -21,7 +22,7 @@ const ALLOWED_ORIGINS = [
 // -------------------------------------
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow server-to-server
+    if (!origin) return callback(null, true); // server-to-server
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
 
     console.warn("❌ Blocked CORS Origin:", origin);
@@ -36,9 +37,11 @@ app.use(cors({
 // Shopify App Proxy
 // -------------------------------------
 app.use("/apps/request-purchase", requestPurchaseRouter);
+app.use("/apps/draft-order-loader", draftOrderLoaderRouter);
 
 // Direct access for testing
 app.use("/request-purchase", requestPurchaseRouter);
+app.use("/draft-order-loader", draftOrderLoaderRouter);
 
 // Root URL
 app.get("/", (_req, res) => res.send("Backend online"));

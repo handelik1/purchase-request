@@ -1,14 +1,11 @@
 import express from "express";
+import fetch from "node-fetch";
 
 const router = express.Router();
 
 router.post("/", async (req, res) => {
   try {
-    const recipientEmail = req.body?.email;
-    const cart = req.body?.cart;
-    const requester = req.body?.requester;
-    const senderName = req.body?.senderName;
-    const senderLocation = req.body?.senderLocation;
+    const { email: recipientEmail, cart, requester, senderName, senderLocation } = req.body;
 
     console.log("📥 Incoming request", {
       recipientEmail,
@@ -29,10 +26,7 @@ router.post("/", async (req, res) => {
       variant_id: Number(item.variant_id),
       quantity: Number(item.quantity),
       properties: item.properties
-        ? Object.entries(item.properties).map(([k, v]) => ({
-            name: k,
-            value: String(v)
-          }))
+        ? Object.entries(item.properties).map(([k, v]) => ({ name: k, value: String(v) }))
         : []
     }));
 
@@ -40,14 +34,14 @@ router.post("/", async (req, res) => {
     // SHIPPING ADDRESS
     // -----------------------------
     const address = requester?.email ? {
-      first_name: requester.first_name,
-      last_name: requester.last_name,
-      address1: requester.address1,
-      address2: requester.address2,
-      city: requester.city,
-      province: requester.province,
-      zip: requester.zip,
-      country: requester.country,
+      first_name: requester.first_name || "N/A",
+      last_name: requester.last_name || "N/A",
+      address1: requester.address1 || "",
+      address2: requester.address2 || "",
+      city: requester.city || "",
+      province: requester.province || "",
+      zip: requester.zip || "",
+      country: requester.country || "US",
       email: requester.email
     } : undefined;
 
@@ -103,7 +97,6 @@ router.post("/", async (req, res) => {
     // SEND EMAIL (MAILGUN)
     // -----------------------------
     const auth = Buffer.from(`api:${process.env.MAILGUN_API_KEY}`).toString("base64");
-
     const form = new URLSearchParams();
     form.append("from", "Order Approval <order-approval@extremedigital.net>");
     form.append("to", recipientEmail);
@@ -119,10 +112,7 @@ router.post("/", async (req, res) => {
       body: form.toString()
     });
 
-    res.json({
-      success: true,
-      invoice_url: draft.invoice_url
-    });
+    res.json({ success: true, invoice_url: draft.invoice_url });
 
   } catch (err) {
     console.error("🔥 Server Error", err);

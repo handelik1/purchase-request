@@ -19,8 +19,10 @@
       Request Purchase
     </button>
 
-    {% if customer.default_address %}
-      <script>
+    <script>
+      // Load or default requester info
+      window.REQUESTER = JSON.parse(localStorage.getItem('requester') || '{}');
+      if (!window.REQUESTER.email) {
         window.REQUESTER = {
           email: "{{ customer.email | escape }}",
           first_name: "{{ customer.default_address.first_name | default: customer.first_name | escape }}",
@@ -32,16 +34,9 @@
           zip: "{{ customer.default_address.zip | escape }}",
           country: "{{ customer.default_address.country | escape }}"
         };
-      </script>
-    {% else %}
-      <script>
-        window.REQUESTER = {
-          email: "{{ customer.email | escape }}",
-          first_name: "{{ customer.first_name | escape }}",
-          last_name: "{{ customer.last_name | escape }}"
-        };
-      </script>
-    {% endif %}
+        localStorage.setItem('requester', JSON.stringify(window.REQUESTER));
+      }
+    </script>
 
     <!-- Modal -->
     <div id="request-modal" style="display:none; position: fixed; inset: 0;
@@ -53,11 +48,13 @@
         <input id="recipient-email" type="email" style="width:100%; padding:8px; margin:6px 0 14px;" />
 
         <label>Your Name</label>
-        <input id="requester-name" type="text" style="width:100%; padding:8px; margin:6px 0 14px;" />
+        <input id="requester-name" type="text" style="width:100%; padding:8px; margin:6px 0 14px;" 
+               value="{{ customer.first_name | escape }} {{ customer.last_name | escape }}" />
 
         <label>Your Location</label>
         <input id="requester-location" type="text" placeholder="City, State"
-          style="width:100%; padding:8px; margin:6px 0 20px;" />
+          style="width:100%; padding:8px; margin:6px 0 20px;"
+          value="{{ customer.default_address.city | escape }}, {{ customer.default_address.province | escape }}" />
 
         <button id="send-request-btn"
           style="width:100%; padding:12px; background:black; color:white; cursor:pointer;">
@@ -77,11 +74,11 @@
         const modal = document.getElementById('request-modal');
         const closeBtn = document.getElementById('close-request-modal');
         const sendBtn = document.getElementById('send-request-btn');
-
         if (!openBtn) return;
 
         const BACKEND_URL = "https://purchase-request-13ki.onrender.com/apps/request-purchase";
 
+        // Open / close modal
         openBtn.onclick = () => modal.style.display = "block";
         closeBtn.onclick = () => modal.style.display = "none";
         modal.onclick = e => e.target === modal && (modal.style.display = "none");
@@ -94,6 +91,11 @@
           if (!recipient || !senderName || !senderLocation) {
             return alert("Please fill out all fields.");
           }
+
+          // Persist requester info
+          window.REQUESTER.first_name = senderName.split(' ')[0] || senderName;
+          window.REQUESTER.last_name = senderName.split(' ')[1] || '';
+          localStorage.setItem('requester', JSON.stringify(window.REQUESTER));
 
           modal.style.display = "none";
 
@@ -135,11 +137,3 @@
     </a>
   {% endif %}
 </div>
-
-{% schema %}
-{
-  "name": "Purchase Control Button",
-  "target": "section",
-  "settings": []
-}
-{% endschema %}
