@@ -6,21 +6,19 @@
 <div style="margin-top:20px" class="button-wrapper-3">
 
   {% if customer and is_manager %}
-    <!-- Manager → normal checkout -->
     <a href="/checkout" style="display:block;text-align:center;width:100%;padding:12px;
                                background:#000;color:#fff;text-decoration:none;font-size:16px;">
       Checkout
     </a>
 
   {% elsif customer %}
-    <!-- Non-manager → request purchase -->
     <button id="request-purchase-btn" type="button"
       style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
       Request Purchase
     </button>
 
     <script>
-      // Load or default requester info
+      // Load saved requester info or default
       window.REQUESTER = JSON.parse(localStorage.getItem('requester') || '{}');
       if (!window.REQUESTER.email) {
         window.REQUESTER = {
@@ -38,7 +36,7 @@
       }
     </script>
 
-    <!-- Modal -->
+    <!-- Request Purchase Modal -->
     <div id="request-modal" style="display:none; position: fixed; inset: 0;
         background: rgba(0,0,0,0.6); padding: 40px; z-index: 9999;">
       <div style="background:white; padding:30px; max-width:420px; margin:auto; border-radius:10px;">
@@ -92,7 +90,7 @@
             return alert("Please fill out all fields.");
           }
 
-          // Persist requester info
+          // Save updated info
           window.REQUESTER.first_name = senderName.split(' ')[0] || senderName;
           window.REQUESTER.last_name = senderName.split(' ')[1] || '';
           localStorage.setItem('requester', JSON.stringify(window.REQUESTER));
@@ -126,11 +124,33 @@
             alert("Network error.");
           }
         };
+
+        // Auto-fill checkout fields if on checkout page
+        if (window.location.pathname.includes('/checkouts')) {
+          const fillCheckout = () => {
+            const fields = {
+              'checkout[email]': window.REQUESTER.email,
+              'checkout[shipping_address][first_name]': window.REQUESTER.first_name,
+              'checkout[shipping_address][last_name]': window.REQUESTER.last_name,
+              'checkout[shipping_address][address1]': window.REQUESTER.address1,
+              'checkout[shipping_address][address2]': window.REQUESTER.address2,
+              'checkout[shipping_address][city]': window.REQUESTER.city,
+              'checkout[shipping_address][province]': window.REQUESTER.province,
+              'checkout[shipping_address][zip]': window.REQUESTER.zip,
+              'checkout[shipping_address][country]': window.REQUESTER.country
+            };
+            for (const [selector, value] of Object.entries(fields)) {
+              const el = document.querySelector(`[name="${selector}"]`);
+              if (el) el.value = value;
+            }
+          };
+          setTimeout(fillCheckout, 500); // wait for checkout form to load
+        }
+
       });
     </script>
 
   {% else %}
-    <!-- Not logged in → normal checkout -->
     <a href="/checkout" style="display:block;text-align:center;width:100%;padding:12px;
                                background:#000;color:#fff;text-decoration:none;font-size:16px;">
       Checkout

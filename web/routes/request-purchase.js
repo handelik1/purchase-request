@@ -7,11 +7,6 @@ router.post("/", async (req, res) => {
   try {
     const { email: recipientEmail, cart, requester, senderName, senderLocation } = req.body;
 
-    console.log("📥 Incoming request", {
-      recipientEmail,
-      items: cart?.items?.length
-    });
-
     if (!recipientEmail || !cart?.items?.length || !senderName || !senderLocation) {
       return res.status(400).json({ success: false });
     }
@@ -20,7 +15,7 @@ router.post("/", async (req, res) => {
     const token = process.env.SHOPIFY_ADMIN_API_TOKEN;
 
     // -----------------------------
-    // LINE ITEMS (WITH PROPERTIES)
+    // LINE ITEMS WITH PROPERTIES
     // -----------------------------
     const line_items = cart.items.map(item => ({
       variant_id: Number(item.variant_id),
@@ -80,7 +75,7 @@ router.post("/", async (req, res) => {
     const draft = (await resp.json()).draft_order;
 
     // -----------------------------
-    // EMAIL CONTENT
+    // SEND EMAIL VIA MAILGUN
     // -----------------------------
     const html = `
       <h2>Purchase Request</h2>
@@ -93,9 +88,6 @@ router.post("/", async (req, res) => {
       </p>
     `;
 
-    // -----------------------------
-    // SEND EMAIL (MAILGUN)
-    // -----------------------------
     const auth = Buffer.from(`api:${process.env.MAILGUN_API_KEY}`).toString("base64");
     const form = new URLSearchParams();
     form.append("from", "Order Approval <order-approval@extremedigital.net>");
