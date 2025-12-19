@@ -6,78 +6,127 @@ router.post("/", async (req, res) => {
   try {
     const recipientEmail = req.body?.email;
     const cart = req.body?.cart;
+    const requester = req.body?.requester;
     const senderName = req.body?.senderName;
     const senderLocation = req.body?.senderLocation;
 
-    if (!recipientEmail) {
-      return res.status(400).json({ success: false, error: "Recipient email missing" });
-    }
+    console.log("📥 Incoming request", {
+      recipientEmail,
+      items: cart?.items?.length
+    });
 
-    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
-      return res.status(400).json({ success: false, error: "Cart empty" });
+    if (!recipientEmail || !cart?.items?.length || !senderName || !senderLocation) {
+      return res.status(400).json({ success: false });
     }
-
-    // ------------------------------------
-    // BUILD CART PERMALINK
-    // ------------------------------------
-    const cartItems = cart.items
-      .map(item => `${item.variant_id}:${item.quantity}`)
-      .join(",");
 
     const shop = process.env.SHOPIFY_SHOP_DOMAIN;
-    const cartUrl = `https://${shop}/cart/${cartItems}`;
+    const token = process.env.SHOPIFY_ADMIN_API_TOKEN;
 
-    // ------------------------------------
-    // EMAIL HTML
-    // ------------------------------------
-    const html = `
-      <h2>Purchase Request</h2>
-      <p><strong>${senderName}</strong> from <strong>${senderLocation}</strong> has requested a purchase.</p>
+    // -----------------------------
+    // LINE ITEMS (WITH PROPERTIES)
+    // -----------------------------
+    const line_items = cart.items.map(item => ({
+      variant_id: Number(item.variant_id),
+      quantity: Number(item.quantity),
+      properties: item.properties
+        ? Object.entries(item.properties).map(([k, v]) => ({
+            name: k,
+            value: String(v)
+          }))
+        : []
+    }));
 
-      <p>
-        <a href="${cartUrl}"
-          style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
-          Review Cart & Checkout
-        </a>
-      </p>
+    // -----------------------------
+    // SHIPPING ADDRESS
+    // -----------------------------
+    const address = requester?.email ? {
+      first_name: requester.first_name,
+      last_name: requester.last_name,
+      address1: requester.address1,
+      address2: requester.address2,
+      city: requester.city,
+      province: requester.province,
+      zip: requester.zip,
+      country: requester.country,
+      email: requester.email
+    } : undefined;
 
-      <p>You may edit quantities, remove items, or add new items before checkout.</p>
+    // -----------------------------
+    // CREATE DRAFT ORDER
+    // -----------------------------
+    const draftOrderBody = {
+      draft_order: {
+        line_items,
+        email: requester.email,
+        shipping_address: address,
+        billing_address: address,
+        use_customer_default_address: false,
+        note: `Requested by ${senderName} (${senderLocation})`
+      }
+    };
 
-      <p>If the button does not work:<br/>
-      <a href="${cartUrl}">${cartUrl}</a></p>
-    `;
-
-    // ------------------------------------
-    // SEND EMAIL (MAILGUN)
-    // ------------------------------------
-    const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
-    const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
-    const MAILGUN_BASE = process.env.MAILGUN_BASE_URL || "https://api.mailgun.net/v3";
-
-    if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
-      const auth = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64");
-
-      const form = new URLSearchParams();
-      form.append("from", "Purchase Requests <orders@extremedigital.net>");
-      form.append("to", recipientEmail);
-      form.append("subject", `Purchase request from ${senderName}`);
-      form.append("html", html);
-
-      await fetch(`${MAILGUN_BASE}/${MAILGUN_DOMAIN}/messages`, {
+    const resp = await fetch(
+      `https://${shop}/admin/api/2025-01/draft_orders.json`,
+      {
         method: "POST",
         headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": token
         },
-        body: form.toString()
-      });
+        body: JSON.stringify(draftOrderBody)
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error(err);
+      return res.status(500).json({ success: false });
     }
 
-    return res.json({ success: true, cart_url: cartUrl });
+    const draft = (await resp.json()).draft_order;
+
+    // -----------------------------
+    // EMAIL CONTENT
+    // -----------------------------
+    const html = `
+      <h2>Purchase Request</h2>
+      <p><strong>${senderName}</strong> from <strong>${senderLocation}</strong> is requesting approval.</p>
+      <p>
+        <a href="${draft.invoice_url}"
+           style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
+          Review & Checkout
+        </a>
+      </p>
+    `;
+
+    // -----------------------------
+    // SEND EMAIL (MAILGUN)
+    // -----------------------------
+    const auth = Buffer.from(`api:${process.env.MAILGUN_API_KEY}`).toString("base64");
+
+    const form = new URLSearchParams();
+    form.append("from", "Order Approval <order-approval@extremedigital.net>");
+    form.append("to", recipientEmail);
+    form.append("subject", `Purchase request from ${senderName}`);
+    form.append("html", html);
+
+    await fetch(`${process.env.MAILGUN_BASE_URL}/${process.env.MAILGUN_DOMAIN}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: form.toString()
+    });
+
+    res.json({
+      success: true,
+      invoice_url: draft.invoice_url
+    });
 
   } catch (err) {
-    console.error("🔥 Server Error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error("🔥 Server Error", err);
+    res.status(500).json({ success: false });
   }
 });
 

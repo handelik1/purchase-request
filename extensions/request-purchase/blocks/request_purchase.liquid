@@ -3,99 +3,135 @@
   {% assign is_manager = true %}
 {% endif %}
 
-<div style="margin-top:20px">
+<div style="margin-top:20px" class="button-wrapper-3">
 
-{% if customer and is_manager %}
+  {% if customer and is_manager %}
+    <!-- Manager → normal checkout -->
+    <a href="/checkout" style="display:block;text-align:center;width:100%;padding:12px;
+                               background:#000;color:#fff;text-decoration:none;font-size:16px;">
+      Checkout
+    </a>
 
-  <!-- MANAGER → NORMAL CHECKOUT -->
-  <a href="/checkout"
-     style="display:block;width:100%;padding:12px;
-            background:#000;color:#fff;text-align:center;
-            text-decoration:none;font-size:16px;">
-    Checkout
-  </a>
+  {% elsif customer %}
+    <!-- Non-manager → request purchase -->
+    <button id="request-purchase-btn" type="button"
+      style="width:100%;padding:12px;background:#000;color:#fff;border:none;cursor:pointer;font-size:16px;">
+      Request Purchase
+    </button>
 
-{% elsif customer %}
+    {% if customer.default_address %}
+      <script>
+        window.REQUESTER = {
+          email: "{{ customer.email | escape }}",
+          first_name: "{{ customer.default_address.first_name | default: customer.first_name | escape }}",
+          last_name: "{{ customer.default_address.last_name | default: customer.last_name | escape }}",
+          address1: "{{ customer.default_address.address1 | escape }}",
+          address2: "{{ customer.default_address.address2 | escape }}",
+          city: "{{ customer.default_address.city | escape }}",
+          province: "{{ customer.default_address.province | escape }}",
+          zip: "{{ customer.default_address.zip | escape }}",
+          country: "{{ customer.default_address.country | escape }}"
+        };
+      </script>
+    {% else %}
+      <script>
+        window.REQUESTER = {
+          email: "{{ customer.email | escape }}",
+          first_name: "{{ customer.first_name | escape }}",
+          last_name: "{{ customer.last_name | escape }}"
+        };
+      </script>
+    {% endif %}
 
-  <!-- EMPLOYEE → REQUEST PURCHASE -->
-  <button id="request-purchase-btn"
-    style="width:100%;padding:12px;background:#000;
-           color:#fff;border:none;font-size:16px;">
-    Request Purchase
-  </button>
+    <!-- Modal -->
+    <div id="request-modal" style="display:none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.6); padding: 40px; z-index: 9999;">
+      <div style="background:white; padding:30px; max-width:420px; margin:auto; border-radius:10px;">
+        <h2 style="margin-bottom:10px;">Request Purchase</h2>
 
-  <div id="request-modal" style="display:none; position:fixed; inset:0;
-       background:rgba(0,0,0,0.6); z-index:9999;">
-    <div style="background:#fff;padding:30px;
-         max-width:420px;margin:100px auto;border-radius:10px;">
-      <h3>Request Purchase</h3>
+        <label>Email of the approver</label>
+        <input id="recipient-email" type="email" style="width:100%; padding:8px; margin:6px 0 14px;" />
 
-      <input id="recipient-email" type="email" placeholder="Approver Email"
-        style="width:100%;padding:8px;margin-bottom:10px;" />
+        <label>Your Name</label>
+        <input id="requester-name" type="text" style="width:100%; padding:8px; margin:6px 0 14px;" />
 
-      <input id="requester-name" type="text" placeholder="Your Name"
-        style="width:100%;padding:8px;margin-bottom:10px;" />
+        <label>Your Location</label>
+        <input id="requester-location" type="text" placeholder="City, State"
+          style="width:100%; padding:8px; margin:6px 0 20px;" />
 
-      <input id="requester-location" type="text" placeholder="Location"
-        style="width:100%;padding:8px;margin-bottom:20px;" />
+        <button id="send-request-btn"
+          style="width:100%; padding:12px; background:black; color:white; cursor:pointer;">
+          Send Request
+        </button>
 
-      <button id="send-request-btn"
-        style="width:100%;padding:12px;background:#000;color:#fff;">
-        Send Request
-      </button>
+        <button id="close-request-modal"
+          style="margin-top:10px; width:100%; padding:12px; background:#eee;">
+          Cancel
+        </button>
+      </div>
     </div>
-  </div>
 
-  <script>
-    const modal = document.getElementById('request-modal');
-    document.getElementById('request-purchase-btn').onclick = () => modal.style.display = "block";
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const openBtn = document.getElementById('request-purchase-btn');
+        const modal = document.getElementById('request-modal');
+        const closeBtn = document.getElementById('close-request-modal');
+        const sendBtn = document.getElementById('send-request-btn');
 
-    document.getElementById('send-request-btn').onclick = async () => {
-      const email = document.getElementById('recipient-email').value;
-      const senderName = document.getElementById('requester-name').value;
-      const senderLocation = document.getElementById('requester-location').value;
+        if (!openBtn) return;
 
-      if (!email || !senderName || !senderLocation) {
-        alert("All fields required");
-        return;
-      }
+        const BACKEND_URL = "https://purchase-request-13ki.onrender.com/apps/request-purchase";
 
-      modal.style.display = "none";
+        openBtn.onclick = () => modal.style.display = "block";
+        closeBtn.onclick = () => modal.style.display = "none";
+        modal.onclick = e => e.target === modal && (modal.style.display = "none");
 
-      const cart = await fetch('/cart.js').then(r => r.json());
+        sendBtn.onclick = async () => {
+          const recipient = document.getElementById('recipient-email').value.trim();
+          const senderName = document.getElementById('requester-name').value.trim();
+          const senderLocation = document.getElementById('requester-location').value.trim();
 
-      await fetch("https://purchase-request-13ki.onrender.com/apps/request-purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          cart,
-          senderName,
-          senderLocation
-        })
+          if (!recipient || !senderName || !senderLocation) {
+            return alert("Please fill out all fields.");
+          }
+
+          modal.style.display = "none";
+
+          try {
+            const cart = await fetch('/cart.js').then(r => r.json());
+
+            const resp = await fetch(BACKEND_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: recipient,
+                cart,
+                requester: window.REQUESTER,
+                senderName,
+                senderLocation
+              })
+            });
+
+            const result = await resp.json();
+            if (resp.ok && result.success) {
+              alert("Request sent! The approver will receive an email.");
+            } else {
+              alert("Error sending request.");
+              console.error(result);
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Network error.");
+          }
+        };
       });
+    </script>
 
-      alert("Request sent!");
-    };
-  </script>
-
-{% else %}
-
-  <!-- GUEST → NORMAL CHECKOUT -->
-  <a href="/checkout"
-     style="display:block;width:100%;padding:12px;
-            background:#000;color:#fff;text-align:center;
-            text-decoration:none;font-size:16px;">
-    Checkout
-  </a>
-
-{% endif %}
+  {% else %}
+    <!-- Not logged in → normal checkout -->
+    <a href="/checkout" style="display:block;text-align:center;width:100%;padding:12px;
+                               background:#000;color:#fff;text-decoration:none;font-size:16px;">
+      Checkout
+    </a>
+  {% endif %}
 </div>
-
-{% schema %}
-{
-  "name": "Purchase Control Button",
-  "target": "section",
-  "settings": []
-}
-{% endschema %}
