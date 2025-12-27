@@ -83,7 +83,7 @@ router.post("/", async (req, res) => {
       <p>
         <a href="${draft.invoice_url}"
            style="padding:12px 18px;background:#000;color:#fff;border-radius:6px;text-decoration:none;">
-          Review & Checkout
+          Approve Purchase
         </a>
       </p>
     `;
